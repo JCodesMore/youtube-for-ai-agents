@@ -8,3 +8,4 @@ docs/superpowers/
 .cursor/
 *.env
 *.env.local
+temp/
