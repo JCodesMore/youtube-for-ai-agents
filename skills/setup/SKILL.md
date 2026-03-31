@@ -11,10 +11,10 @@ A guided walkthrough for configuring how the YouTube plugin works. Present this 
 
 Run silently (don't show raw output to the user):
 ```
-node scripts/extract-cookies.mjs --status
+node "${CLAUDE_PLUGIN_ROOT}/scripts/extract-cookies.mjs" --status
 ```
 ```
-node scripts/config.mjs --show
+node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --show
 ```
 
 Determine the current auth mode:
@@ -82,7 +82,7 @@ If the user chooses anonymous:
 
 1. If cookies exist (switching from personalized or broken state), run:
    ```
-   node scripts/extract-cookies.mjs --reset
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/extract-cookies.mjs" --reset
    ```
 
 2. Confirm to the user:
@@ -106,7 +106,7 @@ Before any extraction, present this to the user:
 >
 > - **What we access:** YouTube authentication cookies only — used to identify your account
 > - **How it works:** A separate Chrome window opens where you log into YouTube. We read cookies from that session — your main browser is never touched.
-> - **Where they're stored:** Locally on your machine at `~/.youtube/`. They never leave your device and are never sent to any third party.
+> - **Where they're stored:** Locally on your machine in the plugin data directory (`CLAUDE_PLUGIN_DATA`) for cookies, plus a dedicated Chrome profile at `~/.youtube/chrome-profile/`. They never leave your device and are never sent to any third party.
 > - **What they're used for:** Passed to YouTube's API so search results reflect your subscriptions, watch history, and preferences
 > - **You're in control:** Run `/youtube:setup` anytime to switch back to anonymous mode or delete stored cookies
 >
@@ -118,7 +118,7 @@ Wait for the user's response. If they decline, switch to anonymous mode instead.
 
 If the user consents, run:
 ```
-node scripts/extract-cookies.mjs
+node "${CLAUDE_PLUGIN_ROOT}/scripts/extract-cookies.mjs"
 ```
 
 Handle the output:
@@ -136,7 +136,7 @@ Tell the user:
 
 Wait for the user to confirm they've logged in, then re-run:
 ```
-node scripts/extract-cookies.mjs
+node "${CLAUDE_PLUGIN_ROOT}/scripts/extract-cookies.mjs"
 ```
 
 If it returns LOGIN_REQUIRED again, ask the user to double-check they're logged in on youtube.com in the Chrome window that opened (not their regular browser).
@@ -156,7 +156,7 @@ If the user chooses "Configure settings":
 
 If you haven't already, run silently:
 ```
-node scripts/config.mjs --show
+node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --show
 ```
 
 Parse the output. Settings marked with `(*)` are user-customized overrides.
@@ -170,7 +170,7 @@ Show the user their current settings, grouped into categories. Use friendly name
 > Here are your current settings (starred values are ones you've customized):
 >
 > **Search Defaults**
-> - Default result count: 10 — how many results are returned when no limit is specified
+> - Default result count: 20 — how many results are returned when no limit is specified
 > - Default type: video — filter by video, channel, or playlist
 > - Default upload date: all — filter by recency (today, week, month, year, all)
 > - Default duration: all — filter by length (short, medium, long, all)
@@ -195,12 +195,12 @@ Show the user their current settings, grouped into categories. Use friendly name
 
 When the user says what they want to change, run the appropriate command:
 ```
-node scripts/config.mjs --set <section.key> <value>
+node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --set <section.key> <value>
 ```
 
 For example:
-- "I want 20 search results by default" → `node scripts/config.mjs --set search.defaultLimit 20`
-- "Change language to Spanish" → `node scripts/config.mjs --set innertube.language es` and `node scripts/config.mjs --set transcript.defaultLanguage es`
+- "I want 30 search results by default" → `node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --set search.defaultLimit 30`
+- "Change language to Spanish" → `node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --set innertube.language es` and `node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --set transcript.defaultLanguage es`
 
 If the script returns an error (e.g., invalid value or out of range), relay the constraint to the user in a friendly way and ask them to pick a valid option.
 
@@ -209,7 +209,7 @@ If the script returns an error (e.g., invalid value or out of range), relay the 
 After applying changes, confirm what was changed and offer to continue:
 
 > Updated! Here's what changed:
-> - Default search results: 10 → 20
+> - Default search results: 20 → 30
 >
 > The MCP server reads settings at startup, so you'll need to **restart your AI coding agent** for changes to take effect.
 >
@@ -221,7 +221,7 @@ If they want to change more, loop back to presenting the settings. If done, wrap
 
 If the user asks to reset everything to defaults:
 ```
-node scripts/config.mjs --reset
+node "${CLAUDE_PLUGIN_ROOT}/scripts/config.mjs" --reset
 ```
 
 Confirm:

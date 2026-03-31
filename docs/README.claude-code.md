@@ -41,6 +41,8 @@ node scripts/config.mjs --set search.defaultLimit 20
 node scripts/config.mjs --reset
 ```
 
+Run these commands from the plugin root directory.
+
 ## Authentication (optional)
 
 The plugin works out of the box in anonymous mode. For personalized results (recommendations, watch history):
@@ -48,7 +50,7 @@ The plugin works out of the box in anonymous mode. For personalized results (rec
 1. Run `/youtube:setup`
 2. Follow the guided walkthrough to extract cookies from Chrome
 
-Cookies are stored locally in `.cookies.json` and never transmitted anywhere.
+Cookies are stored locally in the plugin data directory (`CLAUDE_PLUGIN_DATA`) and never transmitted anywhere. If `CLAUDE_PLUGIN_DATA` is not set, the script falls back to `.cookies.json` in the current directory.
 
 ## Updating
 

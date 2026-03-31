@@ -22,7 +22,7 @@ import { join, dirname } from 'path';
 
 const DEFAULTS = {
   search: {
-    defaultLimit: 10,
+    defaultLimit: 20,
     maxLimit: 50,
     defaultType: 'video',
     defaultUploadDate: 'all',
@@ -49,7 +49,7 @@ const DEFAULTS = {
 
 const VALIDATORS = {
   'search.defaultLimit':     { type: 'number', min: 1, max: 50 },
-  'search.maxLimit':         { type: 'number', min: 1, max: 200 },
+  'search.maxLimit':         { type: 'number', min: 1, max: 50 },
   'search.defaultType':      { type: 'enum', values: ['video', 'channel', 'playlist'] },
   'search.defaultUploadDate':{ type: 'enum', values: ['all', 'today', 'week', 'month', 'year'] },
   'search.defaultDuration':  { type: 'enum', values: ['all', 'short', 'medium', 'long'] },

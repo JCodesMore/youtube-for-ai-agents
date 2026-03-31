@@ -11,7 +11,8 @@ You have access to YouTube research tools via MCP.
 
 On the first tool call in a session, check the `authenticated` field in the response:
 - If `authenticated: true` — good, proceed normally.
-- If `authenticated: false` — automatically run `node scripts/extract-cookies.mjs --status` to check if auth is configured. If not, run `node scripts/extract-cookies.mjs` to set it up automatically. The script handles Chrome detection, launching, and cookie extraction. The only thing it can't automate is the user being logged into YouTube — if auth cookies are missing after extraction, tell the user to log into YouTube in Chrome and re-run setup.
+- If `authenticated: false` — run `node "${CLAUDE_PLUGIN_ROOT}/scripts/extract-cookies.mjs" --status` to check whether auth is configured.
+- If auth is not configured, ask for user consent first, then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/extract-cookies.mjs"` (or route them through `/youtube:setup`). The script handles Chrome detection, launching, and cookie extraction. The only thing it can't automate is the user being logged into YouTube — if auth cookies are missing after extraction, tell the user to log into YouTube in Chrome and re-run setup.
 
 After setup, the InnerTube instance needs to be recreated to pick up the new cookies. Re-invoke the tool — it will use the fresh cookies.
 

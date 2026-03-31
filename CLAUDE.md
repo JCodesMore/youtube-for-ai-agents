@@ -34,9 +34,9 @@ npm run dev      # watch mode
 
 Two modes:
 - **Anonymous** — no cookies, works immediately. Some YouTube features unavailable.
-- **Personalized** — uses cookies from `.cookies.json` (extracted from Chrome via `scripts/extract-cookies.mjs`). Creates a dedicated Chrome profile at `~/.youtube/chrome-profile/`.
+- **Personalized** — uses cookies from `CLAUDE_PLUGIN_DATA/cookies.json` (falls back to `.cookies.json` if `CLAUDE_PLUGIN_DATA` is unavailable), extracted via `scripts/extract-cookies.mjs`. Creates a dedicated Chrome profile at `~/.youtube/chrome-profile/`.
 
-Cookie files (`.cookies.json`, `.config.json`) are gitignored and stored locally.
+Cookie/config files are gitignored and stored locally (`CLAUDE_PLUGIN_DATA` when available, otherwise local dotfiles like `.cookies.json` / `.config.json`).
 
 ## Skills & Agents
 

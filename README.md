@@ -105,11 +105,11 @@ Uses your YouTube login cookies to access personalized results. To set up:
 1. Run the setup skill inside Claude Code: `/youtube:setup`
 2. Follow the guided walkthrough to extract cookies from Chrome
 
-The setup creates a **dedicated Chrome profile** — your main browser profile is never accessed. Cookies are stored locally in `.cookies.json` and never transmitted anywhere.
+The setup creates a **dedicated Chrome profile** — your main browser profile is never accessed. Cookies are stored locally in the plugin data directory (`CLAUDE_PLUGIN_DATA`) and never transmitted anywhere. If `CLAUDE_PLUGIN_DATA` is not set, the script falls back to `.cookies.json` in the current directory.
 
 ## Configuration
 
-Use the setup skill (`/youtube:setup`) to configure defaults for search limits, transcript language, channel video sorting, and more. Or use the CLI directly:
+Use the setup skill (`/youtube:setup`) to configure defaults for search limits, transcript language, channel video sorting, and more. Or use the CLI directly from the plugin root:
 
 ```bash
 # View current settings

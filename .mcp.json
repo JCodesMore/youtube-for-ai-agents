@@ -3,8 +3,10 @@
     "youtube": {
       "type": "stdio",
       "command": "node",
-      "args": ["dist/index.js"],
-      "cwd": "."
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/start-mcp.mjs"],
+      "env": {
+        "CLAUDE_PLUGIN_DATA": "${CLAUDE_PLUGIN_DATA}"
+      }
     }
   }
 }
