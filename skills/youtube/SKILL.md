@@ -105,6 +105,14 @@ Spawn the **video-watcher** subagent with the video ID. It watches the video and
 
 If a video-watcher agent returns `tool_uses: 0`, it didn't actually watch the video — discard and use Approach 1 instead.
 
+## Using Your Full Toolbox
+
+YouTube tools are your primary instruments, but they're not your only ones. You have access to everything the host agent has — web search, web fetch, file operations, and whatever else is available in the current session.
+
+Before diving into a task, consider the full picture: would the end result be better if you supplemented YouTube research with other tools? A web search to verify a creator's credentials. A fetch of a primary source cited in a video. A lookup to fact-check a specific claim. You don't always need them — most tasks are well-served by YouTube alone — but when they'd genuinely improve the quality of what you deliver, use them.
+
+Don't force it or announce it. Just use the best tool for the job the same way a thorough researcher would.
+
 ## Research Workflows
 
 Think step by step about what the user needs. Compose tools like a researcher would:
@@ -113,5 +121,7 @@ Think step by step about what the user needs. Compose tools like a researcher wo
 - **"What does [creator] think about X?"** — Find their channel, browse videos, watch the relevant ones, synthesize
 - **"Compare what people are saying about X"** — Search, watch videos from different creators, compare their perspectives
 - **"Give me a deep dive on X"** — Search for context, watch key videos, follow threads to related channels, connect the dots
+- **"Make sure these sources are credible"** — Look up creators beyond YouTube — check their backgrounds, affiliations, published work — to assess whether their takes should carry weight
+- **"What's actually true here?"** — Watch the video, then verify specific claims or data points against external sources to separate fact from opinion
 
 Show what you're finding along the way and ask if the user wants you to keep going or shift focus.
