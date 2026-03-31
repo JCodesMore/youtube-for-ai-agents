@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { existsSync, statSync, mkdirSync } from 'fs';
 import { resolve, join } from 'path';
-import { concatClips, formatFileSize } from '../lib/download.js';
+import { concatClips, formatFileSize, getVideoDuration, formatSeconds } from '../lib/download.js';
 
 export const highlightReelInputSchema = {
   clips: z.array(z.string()).min(2)
@@ -33,6 +33,8 @@ export async function handleHighlightReel(args: HighlightReelArgs) {
   await concatClips(args.clips, outputPath, { reencode: true });
 
   const fileSize = formatFileSize(statSync(outputPath).size);
+  const durationSeconds = await getVideoDuration(outputPath);
+  const duration = formatSeconds(durationSeconds);
 
   return {
     content: [{
@@ -40,6 +42,7 @@ export async function handleHighlightReel(args: HighlightReelArgs) {
       text: JSON.stringify({
         highlightReel: {
           filePath: outputPath,
+          duration,
           fileSize,
           clipCount: args.clips.length,
         },

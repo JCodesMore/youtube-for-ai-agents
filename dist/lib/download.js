@@ -86,6 +86,28 @@ function runFfmpeg(args) {
         proc.on('error', reject);
     });
 }
+export function getVideoDuration(filePath) {
+    const bin = assertFfmpeg();
+    return new Promise((resolve, reject) => {
+        const proc = spawn(bin, ['-i', filePath], { stdio: ['ignore', 'pipe', 'pipe'] });
+        let stderr = '';
+        proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+        proc.on('close', () => {
+            const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
+            if (match) {
+                const hours = parseInt(match[1]);
+                const minutes = parseInt(match[2]);
+                const seconds = parseInt(match[3]);
+                const fraction = parseInt(match[4]) / 100;
+                resolve(hours * 3600 + minutes * 60 + seconds + fraction);
+            }
+            else {
+                resolve(0);
+            }
+        });
+        proc.on('error', reject);
+    });
+}
 export async function concatClips(clipPaths, outputPath, options) {
     if (options?.reencode) {
         // Use concat filter with re-encoding for multi-source clips.
