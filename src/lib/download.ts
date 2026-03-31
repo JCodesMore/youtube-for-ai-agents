@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, unlinkSync, statSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { tmpdir } from 'os';
 import { spawn } from 'child_process';
@@ -68,6 +68,11 @@ export interface ClipResult {
   fileSize: string;
 }
 
+export interface HighlightReelResult {
+  highlightReel: { filePath: string; duration: string; fileSize: string };
+  clips: ClipResult[];
+}
+
 // --- Timestamp parsing ---
 
 export function parseTimestamp(input: string): number {
@@ -132,6 +137,23 @@ function runFfmpeg(args: string[]): Promise<void> {
     });
     proc.on('error', reject);
   });
+}
+
+async function concatClips(clipPaths: string[], outputPath: string): Promise<void> {
+  const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
+  const listContent = clipPaths
+    .map(p => `file '${p.replace(/\\/g, '/')}'`)
+    .join('\n');
+  writeFileSync(listFile, listContent);
+  try {
+    await runFfmpeg([
+      '-f', 'concat', '-safe', '0', '-i', listFile,
+      '-c', 'copy', '-fflags', '+genpts',
+      '-movflags', '+faststart', '-y', outputPath,
+    ]);
+  } finally {
+    try { unlinkSync(listFile); } catch {}
+  }
 }
 
 // --- Download ---
@@ -265,8 +287,9 @@ export async function createClips(
     quality?: DownloadQuality;
     accurate?: boolean;
     force?: boolean;
+    highlightReel?: boolean;
   } = {},
-): Promise<ClipResult[] | DurationWarning> {
+): Promise<HighlightReelResult | ClipResult[] | DurationWarning> {
   const outputDir = resolve(options.outputDir ?? '.');
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
 
@@ -309,6 +332,29 @@ export async function createClips(
     }
   } finally {
     try { unlinkSync(tempPath); } catch {}
+  }
+
+  const shouldCreateReel = (options.highlightReel ?? true) && clipResults.length >= 2;
+
+  if (shouldCreateReel) {
+    const reelPath = join(outputDir, `${safeName} - highlight-reel.mp4`);
+    await concatClips(clipResults.map(c => c.filePath), reelPath);
+
+    const reelSize = formatFileSize(statSync(reelPath).size);
+    const totalSeconds = clipResults.reduce((sum, c) => {
+      const start = parseTimestamp(c.startTime);
+      const end = parseTimestamp(c.endTime);
+      return sum + (end - start);
+    }, 0);
+
+    return {
+      highlightReel: {
+        filePath: reelPath,
+        duration: formatSeconds(totalSeconds),
+        fileSize: reelSize,
+      },
+      clips: clipResults,
+    };
   }
 
   return clipResults;

@@ -34,6 +34,14 @@ export interface ClipResult {
     clipDuration: string;
     fileSize: string;
 }
+export interface HighlightReelResult {
+    highlightReel: {
+        filePath: string;
+        duration: string;
+        fileSize: string;
+    };
+    clips: ClipResult[];
+}
 export declare function parseTimestamp(input: string): number;
 export declare function formatSeconds(seconds: number): string;
 export declare function downloadVideo(videoId: string, options?: DownloadOptions): Promise<DownloadResult | DurationWarning>;
@@ -48,5 +56,6 @@ export declare function createClips(videoId: string, clips: ClipDefinition[], op
     quality?: DownloadQuality;
     accurate?: boolean;
     force?: boolean;
-}): Promise<ClipResult[] | DurationWarning>;
+    highlightReel?: boolean;
+}): Promise<HighlightReelResult | ClipResult[] | DurationWarning>;
 //# sourceMappingURL=download.d.ts.map

@@ -18,6 +18,8 @@ export const clipInputSchema = {
     .describe('Frame-accurate cuts via re-encoding — MUCH slower, re-encodes entire clip. Only use when the user explicitly needs frame-perfect precision. Default fast keyframe cuts are fine for nearly all use cases (default: false)'),
   force: z.boolean().optional()
     .describe('Bypass the duration guard for long videos'),
+  highlightReel: z.boolean().optional()
+    .describe('Combine all clips into a single highlight-reel video (default: true). Set to false for individual clips only.'),
 };
 
 interface ClipArgs {
@@ -27,6 +29,7 @@ interface ClipArgs {
   quality?: DownloadQuality;
   accurate?: boolean;
   force?: boolean;
+  highlightReel?: boolean;
 }
 
 export async function handleClip(args: ClipArgs) {
@@ -37,6 +40,7 @@ export async function handleClip(args: ClipArgs) {
     quality: args.quality ?? config.download.defaultQuality,
     accurate: args.accurate,
     force: args.force,
+    highlightReel: args.highlightReel,
   });
 
   return {

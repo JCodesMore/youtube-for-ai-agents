@@ -19,6 +19,7 @@ export declare const clipInputSchema: {
     quality: z.ZodOptional<z.ZodEnum<["best", "bestefficiency", "144p", "240p", "360p", "480p", "720p", "1080p", "1440p", "2160p"]>>;
     accurate: z.ZodOptional<z.ZodBoolean>;
     force: z.ZodOptional<z.ZodBoolean>;
+    highlightReel: z.ZodOptional<z.ZodBoolean>;
 };
 interface ClipArgs {
     videoId: string;
@@ -31,6 +32,7 @@ interface ClipArgs {
     quality?: DownloadQuality;
     accurate?: boolean;
     force?: boolean;
+    highlightReel?: boolean;
 }
 export declare function handleClip(args: ClipArgs): Promise<{
     content: {

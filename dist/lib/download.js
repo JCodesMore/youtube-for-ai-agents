@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, unlinkSync, statSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { tmpdir } from 'os';
 import { spawn } from 'child_process';
@@ -85,6 +85,26 @@ function runFfmpeg(args) {
         });
         proc.on('error', reject);
     });
+}
+async function concatClips(clipPaths, outputPath) {
+    const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
+    const listContent = clipPaths
+        .map(p => `file '${p.replace(/\\/g, '/')}'`)
+        .join('\n');
+    writeFileSync(listFile, listContent);
+    try {
+        await runFfmpeg([
+            '-f', 'concat', '-safe', '0', '-i', listFile,
+            '-c', 'copy', '-fflags', '+genpts',
+            '-movflags', '+faststart', '-y', outputPath,
+        ]);
+    }
+    finally {
+        try {
+            unlinkSync(listFile);
+        }
+        catch { }
+    }
 }
 // --- Download ---
 export async function downloadVideo(videoId, options = {}) {
@@ -219,6 +239,25 @@ export async function createClips(videoId, clips, options = {}) {
             unlinkSync(tempPath);
         }
         catch { }
+    }
+    const shouldCreateReel = (options.highlightReel ?? true) && clipResults.length >= 2;
+    if (shouldCreateReel) {
+        const reelPath = join(outputDir, `${safeName} - highlight-reel.mp4`);
+        await concatClips(clipResults.map(c => c.filePath), reelPath);
+        const reelSize = formatFileSize(statSync(reelPath).size);
+        const totalSeconds = clipResults.reduce((sum, c) => {
+            const start = parseTimestamp(c.startTime);
+            const end = parseTimestamp(c.endTime);
+            return sum + (end - start);
+        }, 0);
+        return {
+            highlightReel: {
+                filePath: reelPath,
+                duration: formatSeconds(totalSeconds),
+                fileSize: reelSize,
+            },
+            clips: clipResults,
+        };
     }
     return clipResults;
 }
