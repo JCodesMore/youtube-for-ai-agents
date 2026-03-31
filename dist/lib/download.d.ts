@@ -44,6 +44,10 @@ export interface HighlightReelResult {
 }
 export declare function parseTimestamp(input: string): number;
 export declare function formatSeconds(seconds: number): string;
+export declare function formatFileSize(bytes: number): string;
+export declare function concatClips(clipPaths: string[], outputPath: string, options?: {
+    reencode?: boolean;
+}): Promise<void>;
 export declare function downloadVideo(videoId: string, options?: DownloadOptions): Promise<DownloadResult | DurationWarning>;
 export declare function downloadToTemp(videoId: string, quality?: DownloadQuality, force?: boolean): Promise<{
     tempPath: string;

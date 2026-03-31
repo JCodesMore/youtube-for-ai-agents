@@ -12,6 +12,7 @@ import { channelInfoInputSchema, handleChannelInfo } from './tools/channel-info.
 import { playlistInputSchema, handlePlaylist } from './tools/playlist.js';
 import { downloadInputSchema, handleDownload } from './tools/download.js';
 import { clipInputSchema, handleClip } from './tools/clip.js';
+import { highlightReelInputSchema, handleHighlightReel } from './tools/highlight-reel.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
 const server = new McpServer({
@@ -64,10 +65,15 @@ server.registerTool('youtube_download', {
     annotations: DOWNLOAD_ANNOTATIONS,
 }, handleDownload);
 server.registerTool('youtube_clip', {
-    description: 'Extract one or more clips from a YouTube video by timestamp. Downloads the source video once at 720p, then cuts each clip. Each clip needs startTime and endTime (seconds, MM:SS, or HH:MM:SS) and an optional label for the filename. Uses fast keyframe-aligned cuts by default — do NOT set accurate: true unless the user explicitly asks for frame-perfect precision (it re-encodes and is much slower). Keep clips concise (10-30s each). Great for creating highlight reels.',
+    description: 'Extract one or more clips from a YouTube video by timestamp. Downloads the source video once at 720p, then cuts each clip. Each clip needs startTime and endTime (seconds, MM:SS, or HH:MM:SS) and an optional label for the filename. Uses fast keyframe-aligned cuts by default — do NOT set accurate: true unless the user explicitly asks for frame-perfect precision (it re-encodes and is much slower). Keep clips tight — 5-10 seconds each, capturing one key moment per clip. When 2+ clips are provided, automatically produces a per-video highlight reel alongside individual clips.',
     inputSchema: clipInputSchema,
     annotations: DOWNLOAD_ANNOTATIONS,
 }, handleClip);
+server.registerTool('youtube_highlight_reel', {
+    description: 'Combine existing clip files into a single highlight reel. Pass file paths from previous youtube_clip results in your desired playback order. Use this after clipping multiple videos to create one combined reel across all sources. The order of the clips array determines playback order — arrange clips for narrative flow before calling.',
+    inputSchema: highlightReelInputSchema,
+    annotations: DOWNLOAD_ANNOTATIONS,
+}, handleHighlightReel);
 async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);

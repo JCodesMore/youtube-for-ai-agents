@@ -109,7 +109,7 @@ function sanitizeFilename(name: string): string {
     .slice(0, 200);
 }
 
-function formatFileSize(bytes: number): string {
+export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -139,20 +139,42 @@ function runFfmpeg(args: string[]): Promise<void> {
   });
 }
 
-async function concatClips(clipPaths: string[], outputPath: string): Promise<void> {
-  const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
-  const listContent = clipPaths
-    .map(p => `file '${p.replace(/\\/g, '/')}'`)
-    .join('\n');
-  writeFileSync(listFile, listContent);
-  try {
+export async function concatClips(
+  clipPaths: string[],
+  outputPath: string,
+  options?: { reencode?: boolean },
+): Promise<void> {
+  if (options?.reencode) {
+    // Use concat filter with re-encoding for multi-source clips.
+    // This normalizes timestamps, frame rates, and codecs across different videos.
+    const inputs = clipPaths.flatMap(p => ['-i', p]);
+    const filterParts = clipPaths.map((_, i) => `[${i}:v][${i}:a]`).join('');
+    const filterComplex = `${filterParts}concat=n=${clipPaths.length}:v=1:a=1[v][a]`;
+
     await runFfmpeg([
-      '-f', 'concat', '-safe', '0', '-i', listFile,
-      '-c', 'copy', '-fflags', '+genpts',
+      ...inputs,
+      '-filter_complex', filterComplex,
+      '-map', '[v]', '-map', '[a]',
+      '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+      '-c:a', 'aac', '-b:a', '128k',
       '-movflags', '+faststart', '-y', outputPath,
     ]);
-  } finally {
-    try { unlinkSync(listFile); } catch {}
+  } else {
+    // Use concat demuxer with stream copy — fast, but only safe for same-source clips.
+    const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
+    const listContent = clipPaths
+      .map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
+      .join('\n');
+    writeFileSync(listFile, listContent);
+    try {
+      await runFfmpeg([
+        '-f', 'concat', '-safe', '0', '-i', listFile,
+        '-c', 'copy', '-fflags', '+genpts',
+        '-movflags', '+faststart', '-y', outputPath,
+      ]);
+    } finally {
+      try { unlinkSync(listFile); } catch {}
+    }
   }
 }
 

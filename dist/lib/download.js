@@ -55,7 +55,7 @@ function sanitizeFilename(name) {
         .trim()
         .slice(0, 200);
 }
-function formatFileSize(bytes) {
+export function formatFileSize(bytes) {
     if (bytes < 1024)
         return `${bytes} B`;
     if (bytes < 1024 * 1024)
@@ -86,24 +86,42 @@ function runFfmpeg(args) {
         proc.on('error', reject);
     });
 }
-async function concatClips(clipPaths, outputPath) {
-    const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
-    const listContent = clipPaths
-        .map(p => `file '${p.replace(/\\/g, '/')}'`)
-        .join('\n');
-    writeFileSync(listFile, listContent);
-    try {
+export async function concatClips(clipPaths, outputPath, options) {
+    if (options?.reencode) {
+        // Use concat filter with re-encoding for multi-source clips.
+        // This normalizes timestamps, frame rates, and codecs across different videos.
+        const inputs = clipPaths.flatMap(p => ['-i', p]);
+        const filterParts = clipPaths.map((_, i) => `[${i}:v][${i}:a]`).join('');
+        const filterComplex = `${filterParts}concat=n=${clipPaths.length}:v=1:a=1[v][a]`;
         await runFfmpeg([
-            '-f', 'concat', '-safe', '0', '-i', listFile,
-            '-c', 'copy', '-fflags', '+genpts',
+            ...inputs,
+            '-filter_complex', filterComplex,
+            '-map', '[v]', '-map', '[a]',
+            '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
+            '-c:a', 'aac', '-b:a', '128k',
             '-movflags', '+faststart', '-y', outputPath,
         ]);
     }
-    finally {
+    else {
+        // Use concat demuxer with stream copy — fast, but only safe for same-source clips.
+        const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
+        const listContent = clipPaths
+            .map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
+            .join('\n');
+        writeFileSync(listFile, listContent);
         try {
-            unlinkSync(listFile);
+            await runFfmpeg([
+                '-f', 'concat', '-safe', '0', '-i', listFile,
+                '-c', 'copy', '-fflags', '+genpts',
+                '-movflags', '+faststart', '-y', outputPath,
+            ]);
         }
-        catch { }
+        finally {
+            try {
+                unlinkSync(listFile);
+            }
+            catch { }
+        }
     }
 }
 // --- Download ---

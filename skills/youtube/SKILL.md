@@ -81,7 +81,8 @@ All parameters use **camelCase**. Required params marked with *.
 - **youtube_get_video_info** — Get detailed metadata about a video. Params: `videoId`*. Returns description, tags, chapters, likes.
 - **youtube_get_channel_videos** — Browse a channel's videos. Params: `channelUrl`* (@handle, URL, or channel ID), `limit` (max 500), `sort` ("newest"|"popular"|"oldest").
 - **youtube_download** — Download a video or audio track to a local file. Params: `videoId`*, `outputPath`, `quality` (default "720p"; also "best"|"1080p"|etc.), `type` ("video+audio"|"audio"|"video"), `format` (default "mp4"), `force` (bypass duration guard). Videos over 30 minutes return a warning — re-call with `force: true` to proceed.
-- **youtube_clip** — Extract one or more clips from a video by timestamp. Params: `videoId`*, `clips`* (array of `{startTime, endTime, label?}`), `outputDir`, `quality` (default "720p"), `accurate` (default false — do NOT set to true unless user asks for frame-perfect cuts, it re-encodes and is much slower), `force`, `highlightReel` (default true). Downloads the source once, then cuts each clip. When 2+ clips are provided, automatically combines them into a single **highlight reel** video alongside the individual clips. Set `highlightReel: false` to get individual clips only. Timestamps accept seconds ("90"), MM:SS ("1:30"), or HH:MM:SS. **Keep clips concise — 10-30 seconds each.** A clip should capture a single key moment, not an entire section.
+- **youtube_clip** — Extract one or more clips from a video by timestamp. Params: `videoId`*, `clips`* (array of `{startTime, endTime, label?}`), `outputDir`, `quality` (default "720p"), `accurate` (default false — do NOT set to true unless user asks for frame-perfect cuts, it re-encodes and is much slower), `force`, `highlightReel` (default true). Downloads the source once, then cuts each clip. When 2+ clips are provided, automatically combines them into a per-video **highlight reel** alongside the individual clips. Set `highlightReel: false` to get individual clips only. Timestamps accept seconds ("90"), MM:SS ("1:30"), or HH:MM:SS. **Keep clips tight — 5-10 seconds each.** One moment per clip. See "Creating Highlight Reels" below.
+- **youtube_highlight_reel** — Combine existing clip files into a single highlight reel across multiple videos. Params: `clips`* (array of file paths, min 2 — order determines playback order), `outputDir`, `label` (default "highlight-reel"). Use after clipping multiple videos with `youtube_clip` to produce one combined reel. Arrange clips in narrative order before calling.
 
 ## Presenting Results
 
@@ -133,7 +134,73 @@ Think step by step about what the user needs. Compose tools like a researcher wo
 - **"What's actually true here?"** — Watch the video, then verify specific claims or data points against external sources to separate fact from opinion
 
 - **"Download this video"** — Use `youtube_download` with the video ID. Don't override the quality default (720p) unless the user asks for higher. Mention the file path and size when done.
-- **"Clip the best parts"** — Watch the video first (transcript), identify the key moments, then use `youtube_clip` with tight 10-30 second clips around each moment. Give each clip a descriptive label. Don't use `accurate: true` — fast keyframe cuts are fine.
-- **"Make a highlight reel"** — Combine watching + clipping: get the transcript, identify the most impactful 10-30 second moments (a punchline, a key stat, a memorable quote), then batch-clip them all in one `youtube_clip` call with meaningful labels. The tool automatically produces a combined highlight reel video alongside the individual clips. Present the highlight reel as the primary deliverable. Resist the urge to clip entire sections — tight moments hit harder.
+- **"Clip the best parts"** — Watch the video first (transcript), identify the key moments, then use `youtube_clip` with tight clips. See "Creating Highlight Reels" below.
+- **"Make a highlight reel"** — See the full workflow below.
 
 Show what you're finding along the way and ask if the user wants you to keep going or shift focus.
+
+## Creating Highlight Reels
+
+A good highlight reel should feel like a produced piece, not a rough cut. Every clip earns its place. This section covers how to select, order, and combine clips into polished reels — whether from a single video or across multiple sources.
+
+### Clip Selection Craft
+
+Each clip should capture **one moment** — a key stat, a punchline, a surprising claim, a memorable phrase. Not an entire section or train of thought.
+
+- **Ideal length: 5-10 seconds.** Long enough to land the point, short enough to keep pace. Go up to 15-20s only when a complete thought genuinely requires it. Go shorter (3-5s) for punchy reactions or one-liners.
+- **Start mid-action.** Skip the lead-up ("So the thing I want to talk about is..."). Start right when the speaker says the thing that matters.
+- **End clean.** Cut right after the point lands. Don't trail into filler ("and, um, so yeah...").
+- **No dead air.** Set timestamps so the clip starts when the speaker begins talking and ends when they finish. Silence at the start or end of a clip kills momentum.
+- **One idea per clip.** If a moment contains two interesting points, make two clips. Resist the urge to extend a clip to "get both" — the reel will be tighter with two short punchy clips than one long one.
+- **Give each clip a descriptive label.** The label should describe the moment, not just the topic (e.g., "2x-perf-per-watt-claim" not "performance").
+
+### Narrative Ordering
+
+The order of clips defines the viewer experience. Think about it like editing a trailer.
+
+- **Hook first.** The most attention-grabbing, surprising, or provocative clip opens the reel. This is what stops the scroll.
+- **Build a thread.** After the hook, order clips so each one builds on or naturally follows the previous. Group related ideas together. When mixing multiple speakers/sources, alternate them for variety.
+- **Close strong.** End with a memorable takeaway, a bold prediction, or something that leaves an impression.
+- **Smooth transitions.** If clip A ends mid-topic and clip B starts on something completely unrelated, either reorder, adjust timestamps to find cleaner boundaries, or remove one of them.
+
+### The Transcript Preview (Do This Before Clipping)
+
+You already have the full transcript with timestamps from watching each video. Before calling `youtube_clip`, assemble a preview of what the combined reel will sound like:
+
+1. **Draft your clip selections** — list each candidate with timestamps and the transcript text for that range
+2. **Arrange them in playback order** and read through the combined text:
+
+```
+[Clip 1 — "2x performance per watt" (8:33-8:42)]
+"ARM's new chip delivers two times the performance per watt compared to x86..."
+
+[Clip 2 — "Anthropic 74 releases" (0:15-0:22)]
+"Anthropic has shipped 74 releases in the last 52 days, which is insane..."
+
+[Clip 3 — "Gemini catches up" (2:10-2:18)]
+"Gemini Live is so much better now, it actually feels competitive..."
+```
+
+3. **Read it as a viewer would hear it.** Does it flow? Do transitions feel natural? Is there a context gap where the viewer would be confused? Does the opening grab attention?
+4. **Adjust.** Reorder clips, tweak start/end timestamps, swap in different moments, remove weak clips. Repeat until it reads like a coherent narrative.
+
+This preview step is what separates a polished reel from a random collection of clips. It takes a minute of reasoning but dramatically improves the result.
+
+### Single-Video Reel Workflow
+
+1. Watch the video (get transcript)
+2. Identify the 3-8 tightest, most impactful moments
+3. Draft clip selections with timestamps and transcript text
+4. Assemble the preview transcript, review for flow, adjust
+5. Call `youtube_clip` with your finalized clips — it automatically produces a highlight reel alongside individual clips
+6. Present the highlight reel as the primary deliverable
+
+### Multi-Video Reel Workflow
+
+1. Watch all source videos (get transcripts for each)
+2. Identify the best moments across all videos — think about which clips from different sources complement each other
+3. Draft clip selections across all videos with timestamps and transcript text
+4. Assemble the preview transcript with clips from all sources interleaved in your planned order — review for flow, adjust
+5. Call `youtube_clip` once per video to create the individual clips (set `highlightReel: false` since the per-video reels aren't the goal)
+6. Call `youtube_highlight_reel` with the clip file paths **in your narrative order** to produce one combined reel
+7. Present the combined highlight reel as the primary deliverable, with individual clips as supplementary

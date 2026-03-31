@@ -13,7 +13,7 @@ export const clipInputSchema = {
     quality: z.enum(['best', 'bestefficiency', '144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p']).optional()
         .describe('Video quality for the source download (default: best)'),
     accurate: z.boolean().optional()
-        .describe('Frame-accurate cuts via re-encoding — MUCH slower, re-encodes entire clip. Only use when the user explicitly needs frame-perfect precision. Default fast keyframe cuts are fine for nearly all use cases (default: false)'),
+        .describe('Frame-accurate cuts via re-encoding — MUCH slower. Only use when the user explicitly needs frame-perfect precision. Default fast keyframe cuts are fine for nearly all use cases (default: false)'),
     force: z.boolean().optional()
         .describe('Bypass the duration guard for long videos'),
     highlightReel: z.boolean().optional()

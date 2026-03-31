@@ -9,3 +9,4 @@ docs/superpowers/
 *.env
 *.env.local
 temp/
+highlight-reel-output/
