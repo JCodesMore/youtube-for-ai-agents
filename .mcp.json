@@ -5,8 +5,7 @@
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/start-mcp.mjs"],
       "env": {
-        "CLAUDE_PLUGIN_DATA": "${CLAUDE_PLUGIN_DATA}",
-        "NODE_PATH": "${CLAUDE_PLUGIN_DATA}/node_modules"
+        "CLAUDE_PLUGIN_DATA": "${CLAUDE_PLUGIN_DATA}"
       }
     }
   }

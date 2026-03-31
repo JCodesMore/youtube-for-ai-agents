@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.4] - 2026-03-30
+
+### Fixed
+- MCP server failing with `ERR_MODULE_NOT_FOUND` after marketplace install — `NODE_PATH` does not work with ES modules. Changed `ensure-deps.mjs` to install `node_modules` into the plugin root (next to `dist/`) so ESM resolution finds packages via standard directory walking.
+- Removed unused `NODE_PATH` from `.mcp.json` env config.
+
 ## [0.1.3] - 2026-03-30
 
 ### Fixed
