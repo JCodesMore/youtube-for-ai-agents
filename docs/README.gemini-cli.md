@@ -30,7 +30,7 @@ If you prefer not to use the extension system, add to `~/.gemini/settings.json`:
 - **6 MCP tools**: `youtube_search`, `youtube_get_transcript`, `youtube_get_video_info`, `youtube_get_channel_info`, `youtube_get_channel_videos`, `youtube_get_playlist`
 - **Context file**: Research guide and tool reference loaded automatically via `GEMINI.md`
 
-The `transcript-analyzer` agent is not available on Gemini CLI. For transcript analysis, call `youtube_get_transcript` directly and analyze the result in the current session.
+The `video-watcher` agent is not available on Gemini CLI. To watch a video, call `youtube_get_transcript` directly and analyze the result in the current session.
 
 ## Verify
 

@@ -1,5 +1,5 @@
 ---
-name: transcript-analyzer
+name: video-watcher
 description: Watches a YouTube video and reports back with analysis — structured summary by default, or custom analysis via instructions
 model: sonnet
 tools: mcp__youtube__youtube_get_transcript, mcp__youtube__youtube_get_video_info

@@ -13,7 +13,7 @@ This installs the full plugin: MCP tools, skills, and agents.
 
 - **6 MCP tools**: `youtube_search`, `youtube_get_transcript`, `youtube_get_video_info`, `youtube_get_channel_info`, `youtube_get_channel_videos`, `youtube_get_playlist`
 - **Skills**: `/youtube` (research guide), `/youtube:setup` (configuration wizard)
-- **Agents**: `transcript-analyzer` (fetches and analyzes video transcripts)
+- **Agents**: `video-watcher` (watches videos and reports back with analysis)
 
 ## Verify
 

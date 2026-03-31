@@ -16,7 +16,7 @@ The YouTube MCP tools (`youtube_search`, `youtube_get_transcript`, `youtube_get_
 
 ## No subagent support
 
-Gemini CLI does not support subagents. The `transcript-analyzer` agent is not available. For transcript analysis, call `youtube_get_transcript` directly and analyze the result in the current session.
+Gemini CLI does not support subagents. The `video-watcher` agent is not available. To watch a video, call `youtube_get_transcript` directly and analyze the result in the current session.
 
 ## Authentication
 

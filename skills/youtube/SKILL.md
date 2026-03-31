@@ -94,7 +94,7 @@ When a user asks you to watch, summarize, or analyze a video, use one of these a
 Call `youtube_get_transcript(videoId: "...")` yourself, read through it, and give the user your take. This is like watching the video and reporting back. Frame it that way: "I watched it — here's what they covered..."
 
 ### Approach 2: Send an analyst
-Spawn the **transcript-analyzer** subagent with the video ID. It watches the video and returns a structured analysis. Good for batch work or when you want a focused breakdown.
+Spawn the **video-watcher** subagent with the video ID. It watches the video and returns a structured analysis. Good for batch work or when you want a focused breakdown.
 
 - **Default analysis:** Key points, actionable takeaways, notable quotes with timestamps, topic tags.
 - **Custom analysis:** Pass specific instructions:
@@ -103,7 +103,7 @@ Spawn the **transcript-analyzer** subagent with the video ID. It watches the vid
   - "Rate the advice quality 1-10 with reasoning"
   - "Just give timestamps where they discuss pricing"
 
-If a transcript-analyzer agent returns `tool_uses: 0`, it didn't actually watch the video — discard and use Approach 1 instead.
+If a video-watcher agent returns `tool_uses: 0`, it didn't actually watch the video — discard and use Approach 1 instead.
 
 ## Research Workflows
 

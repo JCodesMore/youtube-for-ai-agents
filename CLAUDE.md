@@ -50,7 +50,7 @@ Cookie/config files are gitignored and stored locally (`CLAUDE_PLUGIN_DATA` when
 
 - `skills/setup/SKILL.md` — Guided setup wizard (auth + settings config)
 - `skills/youtube/SKILL.md` — Tool usage guide and research workflows
-- `agents/transcript-analyzer.md` — Subagent that fetches + analyzes transcripts
+- `agents/video-watcher.md` — Subagent that watches videos and reports back with analysis
 
 ## Platform Adapters
 

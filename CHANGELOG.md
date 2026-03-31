@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ## [0.1.5] - 2026-03-30
 
 ### Changed
-- Humanized plugin personality — YouTube skill and transcript-analyzer agent now speak like a colleague who watches videos for you, not a tool that fetches transcripts.
+- Humanized plugin personality — YouTube skill and video-watcher agent now speak like a colleague who watches videos for you, not a tool that fetches transcripts.
 - Added welcome greeting with auth status, capability menu, URL auto-detection, and conversational result formatting.
 
 ## [0.1.4] - 2026-03-30

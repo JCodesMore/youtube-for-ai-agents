@@ -26,7 +26,7 @@ Give your AI coding agent the ability to use YouTube — search for videos, watc
 
 | Agent | Description |
 |-------|-------------|
-| `transcript-analyzer` | Fetches and analyzes a video transcript. Returns key points, takeaways, notable quotes, and topic tags. Accepts custom analysis instructions. |
+| `video-watcher` | Watches a video and reports back — key points, takeaways, notable quotes, and topic tags. Accepts custom analysis instructions. |
 
 ## Installation
 
@@ -145,7 +145,7 @@ youtube-mcp/
 │   ├── setup/SKILL.md          # Setup wizard
 │   └── youtube/SKILL.md        # Research guide
 ├── agents/                     # Agents (Claude Code + Cursor)
-│   └── transcript-analyzer.md
+│   └── video-watcher.md
 ├── scripts/                    # Utility scripts
 │   ├── config.mjs              # Configuration CLI
 │   └── extract-cookies.mjs     # Chrome cookie extraction
