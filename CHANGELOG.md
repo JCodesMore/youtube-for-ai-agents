@@ -4,13 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [0.1.2] - 2026-03-30
+## [0.1.3] - 2026-03-30
 
 ### Fixed
 - Plugin MCP server failing to start after marketplace install — `dist/` was gitignored so the git-cloned cache had no compiled output and no way to build it.
 - Added `SessionStart` hook to auto-install runtime dependencies into `CLAUDE_PLUGIN_DATA` with hash-based skip logic (only reinstalls when `package.json` changes).
 - Set `NODE_PATH` in MCP server env so `dist/` can resolve dependencies from `CLAUDE_PLUGIN_DATA/node_modules`.
 - Simplified `start-mcp.mjs` — removed unreliable build fallback (no `tsc` available in plugin cache), now just validates `dist/` exists.
+- Fixed `spawnSync EINVAL` crash on Node.js v24/Windows by using `shell: true` for npm calls in `ensure-deps.mjs`.
 
 ## [0.1.1] - 2026-03-31
 

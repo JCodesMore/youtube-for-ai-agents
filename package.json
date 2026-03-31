@@ -1,6 +1,6 @@
 {
   "name": "@jcodesmore/youtube-mcp",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "YouTube tools for AI coding agents — search, transcripts, video info, channel browsing, playlists",
   "type": "module",
   "main": "dist/index.js",

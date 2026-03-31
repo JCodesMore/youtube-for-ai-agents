@@ -41,12 +41,12 @@ if (existsSync(srcLock)) {
   copyFileSync(srcLock, dataLock);
 }
 
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const result = spawnSync(npm, ['install', '--omit=dev', '--no-audit', '--no-fund'], {
+const result = spawnSync('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'], {
   cwd: dataDir,
   env: process.env,
   encoding: 'utf8',
   timeout: 120_000,
+  shell: true,
 });
 
 if (result.stdout) process.stderr.write(result.stdout);
