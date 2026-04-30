@@ -1,5 +1,5 @@
 {
-  "name": "@jcodesmore/youtube-mcp",
+  "name": "@jcodesmore/youtube-for-ai-agents",
   "version": "0.2.0",
   "description": "YouTube tools for AI coding agents — search, transcripts, video info, channel browsing, playlists",
   "type": "module",
@@ -29,11 +29,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JCodesMore/youtube-mcp.git"
+    "url": "git+https://github.com/JCodesMore/youtube-for-ai-agents.git"
   },
-  "homepage": "https://github.com/JCodesMore/youtube-mcp",
+  "homepage": "https://github.com/JCodesMore/youtube-for-ai-agents",
   "bugs": {
-    "url": "https://github.com/JCodesMore/youtube-mcp/issues"
+    "url": "https://github.com/JCodesMore/youtube-for-ai-agents/issues"
   },
   "keywords": [
     "mcp",

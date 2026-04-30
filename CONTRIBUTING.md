@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in contributing to youtube-mcp!
+Thanks for your interest in contributing to youtube-for-ai-agents!
 
 ## Contributor License Agreement
 

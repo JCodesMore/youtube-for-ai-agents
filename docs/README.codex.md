@@ -3,7 +3,7 @@
 ## Quick Install
 
 ```bash
-codex mcp add youtube -- npx -y @jcodesmore/youtube-mcp
+codex mcp add youtube -- npx -y @jcodesmore/youtube-for-ai-agents
 ```
 
 That's it. All 6 YouTube MCP tools are now available.
@@ -17,7 +17,7 @@ If you prefer to edit the config file directly, add to `~/.codex/config.toml`:
 ```toml
 [mcp_servers.youtube]
 command = "npx"
-args = ["-y", "@jcodesmore/youtube-mcp"]
+args = ["-y", "@jcodesmore/youtube-for-ai-agents"]
 ```
 
 Restart Codex after editing.
@@ -29,24 +29,24 @@ For skills support (research guide, tool reference), clone and build:
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/JCodesMore/youtube-mcp.git ~/.codex/youtube-mcp
-   cd ~/.codex/youtube-mcp && npm install && npm run build
+   git clone https://github.com/JCodesMore/youtube-for-ai-agents.git ~/.codex/youtube-for-ai-agents
+   cd ~/.codex/youtube-for-ai-agents && npm install && npm run build
    ```
 
 2. **Symlink skills:**
 
    ```bash
    mkdir -p ~/.agents/skills
-   ln -s ~/.codex/youtube-mcp/skills/youtube ~/.agents/skills/youtube
+   ln -s ~/.codex/youtube-for-ai-agents/skills/youtube ~/.agents/skills/youtube
    ```
 
    **Windows (PowerShell):**
 
    ```powershell
-   git clone https://github.com/JCodesMore/youtube-mcp.git "$env:USERPROFILE\.codex\youtube-mcp"
-   cd "$env:USERPROFILE\.codex\youtube-mcp"; npm install; npm run build
+   git clone https://github.com/JCodesMore/youtube-for-ai-agents.git "$env:USERPROFILE\.codex\youtube-for-ai-agents"
+   cd "$env:USERPROFILE\.codex\youtube-for-ai-agents"; npm install; npm run build
    New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.agents\skills"
-   cmd /c mklink /J "$env:USERPROFILE\.agents\skills\youtube" "$env:USERPROFILE\.codex\youtube-mcp\skills\youtube"
+   cmd /c mklink /J "$env:USERPROFILE\.agents\skills\youtube" "$env:USERPROFILE\.codex\youtube-for-ai-agents\skills\youtube"
    ```
 
 3. **Configure MCP server** in `~/.codex/config.toml`:
@@ -54,7 +54,7 @@ For skills support (research guide, tool reference), clone and build:
    ```toml
    [mcp_servers.youtube]
    command = "node"
-   args = ["~/.codex/youtube-mcp/dist/index.js"]
+   args = ["~/.codex/youtube-for-ai-agents/dist/index.js"]
    ```
 
 4. **Restart Codex.**
@@ -72,7 +72,7 @@ Search YouTube for "MCP tutorial"
 The plugin works out of the box in anonymous mode. For personalized results:
 
 ```bash
-cd ~/.codex/youtube-mcp && node scripts/extract-cookies.mjs
+cd ~/.codex/youtube-for-ai-agents && node scripts/extract-cookies.mjs
 ```
 
 ## Updating
@@ -82,7 +82,7 @@ cd ~/.codex/youtube-mcp && node scripts/extract-cookies.mjs
 **Full install:**
 
 ```bash
-cd ~/.codex/youtube-mcp && git pull && npm run build
+cd ~/.codex/youtube-for-ai-agents && git pull && npm run build
 ```
 
 Skills update instantly through the symlink.
@@ -100,5 +100,5 @@ codex mcp remove youtube
 ```bash
 codex mcp remove youtube
 rm -f ~/.agents/skills/youtube
-rm -rf ~/.codex/youtube-mcp
+rm -rf ~/.codex/youtube-for-ai-agents
 ```

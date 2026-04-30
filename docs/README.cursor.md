@@ -9,7 +9,7 @@ Add to your `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
   "mcpServers": {
     "youtube": {
       "command": "npx",
-      "args": ["-y", "@jcodesmore/youtube-mcp"]
+      "args": ["-y", "@jcodesmore/youtube-for-ai-agents"]
     }
   }
 }
@@ -33,15 +33,15 @@ Restart Cursor. All 6 YouTube MCP tools will be available in Agent mode.
 Clone the repo into Cursor's local plugins directory for the full plugin experience (skills, agents, and MCP tools):
 
 ```bash
-git clone https://github.com/JCodesMore/youtube-mcp.git ~/.cursor/plugins/local/youtube-mcp
-cd ~/.cursor/plugins/local/youtube-mcp && npm install && npm run build
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git ~/.cursor/plugins/local/youtube-for-ai-agents
+cd ~/.cursor/plugins/local/youtube-for-ai-agents && npm install && npm run build
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-git clone https://github.com/JCodesMore/youtube-mcp.git "$env:USERPROFILE\.cursor\plugins\local\youtube-mcp"
-cd "$env:USERPROFILE\.cursor\plugins\local\youtube-mcp"; npm install; npm run build
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git "$env:USERPROFILE\.cursor\plugins\local\youtube-for-ai-agents"
+cd "$env:USERPROFILE\.cursor\plugins\local\youtube-for-ai-agents"; npm install; npm run build
 ```
 
 Restart Cursor after installation.
@@ -61,7 +61,7 @@ The `youtube_search` tool should be available and return results.
 The plugin works out of the box in anonymous mode. For personalized results, clone the repo and run the cookie extraction script:
 
 ```bash
-cd ~/.cursor/plugins/local/youtube-mcp
+cd ~/.cursor/plugins/local/youtube-for-ai-agents
 node scripts/extract-cookies.mjs
 ```
 
@@ -72,7 +72,7 @@ node scripts/extract-cookies.mjs
 **Full install:**
 
 ```bash
-cd ~/.cursor/plugins/local/youtube-mcp && git pull && npm run build
+cd ~/.cursor/plugins/local/youtube-for-ai-agents && git pull && npm run build
 ```
 
 ## Uninstalling
@@ -82,11 +82,11 @@ cd ~/.cursor/plugins/local/youtube-mcp && git pull && npm run build
 **Full install:**
 
 ```bash
-rm -rf ~/.cursor/plugins/local/youtube-mcp
+rm -rf ~/.cursor/plugins/local/youtube-for-ai-agents
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-Remove-Item -Recurse -Force "$env:USERPROFILE\.cursor\plugins\local\youtube-mcp"
+Remove-Item -Recurse -Force "$env:USERPROFILE\.cursor\plugins\local\youtube-for-ai-agents"
 ```

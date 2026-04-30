@@ -10,7 +10,7 @@ const entrypoint = join(pluginRoot, 'dist', 'index.js');
 
 if (!existsSync(entrypoint)) {
   process.stderr.write(
-    '[youtube-mcp] dist/index.js not found. The plugin may need to be reinstalled.\n'
+    '[youtube-for-ai-agents] dist/index.js not found. The plugin may need to be reinstalled.\n'
   );
   process.exit(1);
 }

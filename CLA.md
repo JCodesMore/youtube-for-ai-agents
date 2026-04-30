@@ -1,6 +1,6 @@
 # Individual Contributor License Agreement
 
-Thank you for your interest in contributing to **youtube-mcp** (the "Project"), owned by **JCodesMore** (the "Owner"). This Contributor License Agreement ("Agreement") documents the rights granted by contributors to the Owner.
+Thank you for your interest in contributing to **youtube-for-ai-agents** (the "Project"), owned by **JCodesMore** (the "Owner"). This Contributor License Agreement ("Agreement") documents the rights granted by contributors to the Owner.
 
 By submitting a pull request or other contribution to this Project, you accept and agree to the following terms and conditions for your present and future contributions.
 

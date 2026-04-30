@@ -3,7 +3,7 @@
 ## Quick Install
 
 ```bash
-gemini extensions install https://github.com/JCodesMore/youtube-mcp
+gemini extensions install https://github.com/JCodesMore/youtube-for-ai-agents
 ```
 
 This installs the MCP server and context files automatically.
@@ -17,7 +17,7 @@ If you prefer not to use the extension system, add to `~/.gemini/settings.json`:
   "mcpServers": {
     "youtube": {
       "command": "npx",
-      "args": ["-y", "@jcodesmore/youtube-mcp"]
+      "args": ["-y", "@jcodesmore/youtube-for-ai-agents"]
     }
   }
 }
@@ -47,8 +47,8 @@ The `youtube_search` tool should be available and return results.
 The plugin works out of the box in anonymous mode. For personalized results (recommendations, watch history):
 
 ```bash
-git clone https://github.com/JCodesMore/youtube-mcp.git /tmp/youtube-mcp
-cd /tmp/youtube-mcp && npm install && node scripts/extract-cookies.mjs
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git /tmp/youtube-for-ai-agents
+cd /tmp/youtube-for-ai-agents && npm install && node scripts/extract-cookies.mjs
 ```
 
 This launches Chrome, extracts YouTube cookies, and stores them locally in `.cookies.json`.
@@ -56,13 +56,13 @@ This launches Chrome, extracts YouTube cookies, and stores them locally in `.coo
 ## Updating
 
 ```bash
-gemini extensions install https://github.com/JCodesMore/youtube-mcp
+gemini extensions install https://github.com/JCodesMore/youtube-for-ai-agents
 ```
 
 To pin a specific version:
 
 ```bash
-gemini extensions install https://github.com/JCodesMore/youtube-mcp --ref=v0.1.0
+gemini extensions install https://github.com/JCodesMore/youtube-for-ai-agents --ref=v0.1.0
 ```
 
 ## Uninstalling

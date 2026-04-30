@@ -1,6 +1,6 @@
 # YouTube for AI Agents
 
-<a href="https://www.npmjs.com/package/@jcodesmore/youtube-mcp"><img src="https://img.shields.io/npm/v/@jcodesmore/youtube-mcp" alt="npm" /></a> <a href="https://github.com/JCodesMore/youtube-mcp/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="Apache 2.0 License" /></a> <a href="https://discord.gg/babcVNJBet"><img src="https://img.shields.io/discord/1400896964597383279?label=discord" alt="Discord" /></a>
+<a href="https://www.npmjs.com/package/@jcodesmore/youtube-for-ai-agents"><img src="https://img.shields.io/npm/v/@jcodesmore/youtube-for-ai-agents" alt="npm" /></a> <a href="https://github.com/JCodesMore/youtube-for-ai-agents/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="Apache 2.0 License" /></a> <a href="https://discord.gg/babcVNJBet"><img src="https://img.shields.io/discord/1400896964597383279?label=discord" alt="Discord" /></a>
 
 Give your AI coding agent the ability to use YouTube — search for videos, watch and analyze content, browse channels, and explore playlists. Built on MCP, works with Claude Code and other compatible agents.
 
@@ -58,7 +58,7 @@ Works with Claude Desktop, Cursor, Windsurf, and any other MCP-compatible client
   "mcpServers": {
     "youtube": {
       "command": "npx",
-      "args": ["-y", "@jcodesmore/youtube-mcp"]
+      "args": ["-y", "@jcodesmore/youtube-for-ai-agents"]
     }
   }
 }
@@ -67,8 +67,8 @@ Works with Claude Desktop, Cursor, Windsurf, and any other MCP-compatible client
 ### Manual Install (from source)
 
 ```bash
-git clone https://github.com/JCodesMore/youtube-mcp.git
-cd youtube-mcp
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git
+cd youtube-for-ai-agents
 npm install
 npm run build
 ```
@@ -80,7 +80,7 @@ Configure your MCP client to run the server:
   "mcpServers": {
     "youtube": {
       "command": "node",
-      "args": ["<path-to-youtube-mcp>/dist/index.js"]
+      "args": ["<path-to-youtube-for-ai-agents>/dist/index.js"]
     }
   }
 }
@@ -125,7 +125,7 @@ node scripts/config.mjs --reset
 ## Project Structure
 
 ```
-youtube-mcp/
+youtube-for-ai-agents/
 ├── src/                        # TypeScript MCP server (portable)
 │   ├── index.ts                # Server setup and tool registration
 │   ├── config.ts               # Configuration defaults and types

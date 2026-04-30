@@ -9,7 +9,7 @@ Add to your `opencode.json` (project-level or `~/.config/opencode/opencode.json`
   "mcp": {
     "youtube": {
       "type": "local",
-      "command": ["npx", "-y", "@jcodesmore/youtube-mcp"]
+      "command": ["npx", "-y", "@jcodesmore/youtube-for-ai-agents"]
     }
   }
 }
@@ -27,7 +27,7 @@ Add both the plugin and MCP server to your `opencode.json`:
 
 ```json
 {
-  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-mcp.git"],
+  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-for-ai-agents.git"],
   "mcp": {
     "youtube": {
       "type": "local",
@@ -43,11 +43,11 @@ For the MCP server path, either:
 
 ```json
 {
-  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-mcp.git"],
+  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-for-ai-agents.git"],
   "mcp": {
     "youtube": {
       "type": "local",
-      "command": ["npx", "-y", "@jcodesmore/youtube-mcp"]
+      "command": ["npx", "-y", "@jcodesmore/youtube-for-ai-agents"]
     }
   }
 }
@@ -75,8 +75,8 @@ All `youtube_*` tools should be listed.
 The plugin works out of the box in anonymous mode. For personalized results:
 
 ```bash
-git clone https://github.com/JCodesMore/youtube-mcp.git /tmp/youtube-mcp
-cd /tmp/youtube-mcp && npm install && node scripts/extract-cookies.mjs
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git /tmp/youtube-for-ai-agents
+cd /tmp/youtube-for-ai-agents && npm install && node scripts/extract-cookies.mjs
 ```
 
 Copy the resulting `.cookies.json` to the plugin's data directory.
@@ -89,7 +89,7 @@ To pin a specific version:
 
 ```json
 {
-  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-mcp.git#v0.1.0"]
+  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-for-ai-agents.git#v0.1.0"]
 }
 ```
 
