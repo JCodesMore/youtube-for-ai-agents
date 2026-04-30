@@ -1,57 +1,103 @@
+<div align="center">
+
 # YouTube for AI Agents
 
-<a href="https://www.npmjs.com/package/@jcodesmore/youtube-for-ai-agents"><img src="https://img.shields.io/npm/v/@jcodesmore/youtube-for-ai-agents" alt="npm" /></a> <a href="https://github.com/JCodesMore/youtube-for-ai-agents/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="Apache 2.0 License" /></a> <a href="https://discord.gg/babcVNJBet"><img src="https://img.shields.io/discord/1400896964597383279?label=discord" alt="Discord" /></a>
+### Claude watches YouTube so you don't have to
 
-Give your AI coding agent the ability to use YouTube — search for videos, watch and analyze content, browse channels, and explore playlists. Built on MCP, works with Claude Code and other compatible agents.
+Ask *"what's the best video on…?"* and Claude finds it, watches it, and reports back. Drop a long podcast in chat — get the highlights in seconds. Cut clips, build reels, pull transcripts — all without opening a YouTube tab.
 
-## Tools
+[![Discord](https://img.shields.io/badge/Join_the_community-Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/babcVNJBet)
 
-| Tool | Description |
-|------|-------------|
-| `youtube_search` | Search YouTube for videos, channels, or playlists. Filter by upload date, duration, and sort order. |
-| `youtube_get_transcript` | Get timestamped transcript text from a video. Supports format options, time range filtering, and segment limits. |
-| `youtube_get_video_info` | Get video metadata with brief/standard/full detail levels (title, description, tags, chapters, likes). |
-| `youtube_get_channel_info` | Get channel metadata — name, handle, description, subscriber count, country. |
-| `youtube_get_channel_videos` | List a channel's uploads. Sort by newest, popular, or oldest. Accepts @handle, URL, or channel ID. |
-| `youtube_get_playlist` | Get a playlist's metadata and video list with positions. |
+[Quick Start](#quick-start) · [Try it](#try-it) · [Discord](https://discord.gg/babcVNJBet) · [Demo](#demo)
 
-## Skills
+</div>
 
-| Skill | Description |
-|-------|-------------|
-| `/youtube:setup` | Guided setup wizard — configure search mode (anonymous/personalized) and plugin settings. |
-| `/youtube` | YouTube research guide — tool usage, parameter reference, and transcript analysis workflows. |
+---
 
-## Agents
+## Demo
 
-| Agent | Description |
-|-------|-------------|
-| `video-watcher` | Watches a video and reports back — key points, takeaways, notable quotes, and topic tags. Accepts custom analysis instructions. |
+[![Watch the demo](https://img.youtube.com/vi/KbCC7vaeAHY/maxresdefault.jpg)](https://youtu.be/KbCC7vaeAHY)
 
-## Installation
+> Click the image to watch the 1-minute walkthrough.
 
-### Recommended: Claude Code
+## Quick Start
 
-```bash
+**1. Install the plugin** — inside Claude Code, run:
+
+```
 /plugin marketplace add JCodesMore/jcodesmore-plugins
 /plugin install youtube@jcodesmore-plugins
 ```
 
-Full plugin experience out of the box — MCP tools, skills, and agents.
+Then fully **restart Claude Code** (quit the app and reopen).
 
-### Platform Support
+**2. That's it.** No API key, no signup. Just start asking.
 
-| Platform | MCP Tools | Plugin (Skills/Agents) | Setup |
-|----------|:---------:|:----------------------:|-------|
-| Claude Code | ✓ | ✓ | [Setup Guide](docs/README.claude-code.md) |
-| Cursor | ✓ | ✓ | [Setup Guide](docs/README.cursor.md) |
-| Codex | ✓ | — | [Setup Guide](docs/README.codex.md) |
-| OpenCode | ✓ | ✓ (via plugin) | [Setup Guide](docs/README.opencode.md) |
-| Gemini CLI | ✓ | — | [Setup Guide](docs/README.gemini-cli.md) |
+> *Optional:* run `/youtube:setup` to sign in with your own YouTube cookies for personalized search and recommendations.
 
-### Any MCP Client (npx)
+## Try it
 
-Works with Claude Desktop, Cursor, Windsurf, and any other MCP-compatible client:
+Talk to Claude like a friend:
+
+- *"Watch this video and give me the recipe — I don't want to scroll the comments."*
+- *"Find me five highly-rated videos on Roman history."*
+- *"What are this channel's best uploads? Watch the top three and summarize."*
+- *"Pull the actionable takeaways from this 90-minute interview."*
+- *"Cut a 30-second clip starting at 2:15 from this video."*
+- *"Combine these three cooking videos into a single highlight reel."*
+
+The agent searches, watches, and reports back — no scrubbing, no scrolling.
+
+## What's inside
+
+**Nine smart tools** wrapped in **two skills** and **one agent** — search, watch, clip, and reel without leaving the chat.
+
+| Capability | Try saying |
+|---|---|
+| Search videos, channels, playlists | *"find me the top videos on…"* |
+| Watch and summarize | *"watch this and tell me what matters"* |
+| Browse a channel or playlist | *"what's worth watching from this YouTuber?"* |
+| Pull a transcript | *"grab the transcript around the 5-minute mark"* |
+| Download video or audio | *"save the audio of this video"* |
+| Cut a clip | *"clip 2:15 to 2:45 from this video"* |
+| Build a highlight reel | *"combine these clips into one reel"* |
+
+## Community
+
+[**Discord**](https://discord.gg/babcVNJBet) — chat, help, show-and-tell · [**Issues**](https://github.com/JCodesMore/youtube-for-ai-agents/issues) — bugs & feature requests · [**Contribute**](CONTRIBUTING.md) · [**More plugins**](https://github.com/JCodesMore/jcodesmore-plugins)
+
+<details>
+<summary><b>Personalized results (optional)</b></summary>
+
+By default, search runs anonymously — no login required. If you want personalized recommendations and search results, run `/youtube:setup` and follow the cookie-extraction wizard. Cookies stay on your machine in the plugin data directory; nothing is uploaded anywhere.
+
+</details>
+
+<details>
+<summary><b>Use it in Cursor, Codex, OpenCode, or Gemini CLI</b></summary>
+
+The MCP server is portable. Per-platform setup guides:
+
+- [Cursor](docs/README.cursor.md)
+- [Codex](docs/README.codex.md)
+- [OpenCode](docs/README.opencode.md)
+- [Gemini CLI](docs/README.gemini-cli.md)
+
+</details>
+
+<details>
+<summary><b>Advanced install (without the marketplace)</b></summary>
+
+Clone and build it yourself:
+
+```bash
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git
+cd youtube-for-ai-agents
+npm install
+npm run build
+```
+
+Or wire the published npm package directly into any MCP-compatible client:
 
 ```json
 {
@@ -64,116 +110,27 @@ Works with Claude Desktop, Cursor, Windsurf, and any other MCP-compatible client
 }
 ```
 
-### Manual Install (from source)
+**Requirements:** Node.js ≥ 18.
 
-```bash
-git clone https://github.com/JCodesMore/youtube-for-ai-agents.git
-cd youtube-for-ai-agents
-npm install
-npm run build
-```
+</details>
 
-Configure your MCP client to run the server:
+<details>
+<summary><b>Built on</b></summary>
 
-```json
-{
-  "mcpServers": {
-    "youtube": {
-      "command": "node",
-      "args": ["<path-to-youtube-for-ai-agents>/dist/index.js"]
-    }
-  }
-}
-```
+- [Model Context Protocol SDK](https://modelcontextprotocol.io/) — tool exposure to Claude
+- [youtubei.js](https://github.com/LuanRT/YouTube.js) — YouTube InnerTube client (no API key needed)
+- [youtube-transcript-plus](https://www.npmjs.com/package/youtube-transcript-plus) — transcript fetching
+- [ytdlp-nodejs](https://www.npmjs.com/package/ytdlp-nodejs) — video and audio downloads
+- [Zod](https://zod.dev/) — schema validation
 
-### Verify
-
-Start a new session and try any YouTube tool — search for a video or pull a transcript. All `youtube_*` tools should be available.
-
-## Authentication
-
-The plugin works in two modes:
-
-### Anonymous (default)
-
-Works out of the box with no setup. YouTube search results and metadata are publicly available. Some features like personalized recommendations are not available.
-
-### Personalized (optional)
-
-Uses your YouTube login cookies to access personalized results. To set up:
-
-1. Run the setup skill inside Claude Code: `/youtube:setup`
-2. Follow the guided walkthrough to extract cookies from Chrome
-
-The setup creates a **dedicated Chrome profile** — your main browser profile is never accessed. Cookies are stored locally in the plugin data directory (`CLAUDE_PLUGIN_DATA`) and never transmitted anywhere. If `CLAUDE_PLUGIN_DATA` is not set, the script falls back to `.cookies.json` in the current directory.
-
-## Configuration
-
-Use the setup skill (`/youtube:setup`) to configure defaults for search limits, transcript language, channel video sorting, and more. Or use the CLI directly from the plugin root:
-
-```bash
-# View current settings
-node scripts/config.mjs --show
-
-# Change a setting
-node scripts/config.mjs --set search.defaultLimit 20
-
-# Reset to defaults
-node scripts/config.mjs --reset
-```
-
-## Project Structure
-
-```
-youtube-for-ai-agents/
-├── src/                        # TypeScript MCP server (portable)
-│   ├── index.ts                # Server setup and tool registration
-│   ├── config.ts               # Configuration defaults and types
-│   ├── lib/                    # Core libraries
-│   │   ├── innertube.ts        # YouTube API wrapper (youtubei.js)
-│   │   ├── transcript.ts       # Transcript fetching and cleanup
-│   │   ├── cookies.ts          # Cookie loading, validation, persistence
-│   │   └── user-config.ts      # User configuration management
-│   └── tools/                  # MCP tool handlers
-│       ├── search.ts           # youtube_search
-│       ├── transcript.ts       # youtube_get_transcript
-│       ├── video-info.ts       # youtube_get_video_info
-│       ├── channel-info.ts     # youtube_get_channel_info
-│       ├── channel-videos.ts   # youtube_get_channel_videos
-│       └── playlist.ts         # youtube_get_playlist
-├── skills/                     # Skills (shared across platforms)
-│   ├── setup/SKILL.md          # Setup wizard
-│   └── youtube/SKILL.md        # Research guide
-├── agents/                     # Agents (Claude Code + Cursor)
-│   └── video-watcher.md
-├── scripts/                    # Utility scripts
-│   ├── config.mjs              # Configuration CLI
-│   └── extract-cookies.mjs     # Chrome cookie extraction
-├── docs/                       # Per-platform setup guides
-│   ├── README.claude-code.md
-│   ├── README.cursor.md
-│   ├── README.codex.md
-│   ├── README.opencode.md
-│   └── README.gemini-cli.md
-├── .claude-plugin/             # Claude Code plugin manifest
-├── .cursor-plugin/             # Cursor plugin manifest
-├── .opencode/plugins/          # OpenCode plugin loader
-├── gemini-extension.json       # Gemini CLI extension manifest
-└── GEMINI.md                   # Gemini CLI context file
-```
-
-## Tech Stack
-
-- **[MCP SDK](https://modelcontextprotocol.io/)** — Model Context Protocol server implementation
-- **[youtubei.js](https://github.com/LuanRT/YouTube.js)** — YouTube InnerTube API client
-- **[youtube-transcript-plus](https://www.npmjs.com/package/youtube-transcript-plus)** — Transcript extraction
-- **[Zod](https://zod.dev/)** — Runtime schema validation
-- **[puppeteer-core](https://pptr.dev/)** — Chrome automation for cookie extraction (optional)
-
-## Disclaimer
-
-This plugin uses [youtubei.js](https://github.com/LuanRT/YouTube.js), an unofficial YouTube API client. It is **not affiliated with, endorsed by, or associated with YouTube or Google**. YouTube may change their internal APIs at any time, which could break functionality. Use at your own discretion.
+</details>
 
 ## License
 
-[Apache 2.0](LICENSE)
+[Apache License 2.0](LICENSE) — © 2026 JCodesMore
+
+> Uses [youtubei.js](https://github.com/LuanRT/YouTube.js), an unofficial YouTube client. Not affiliated with, endorsed by, or associated with YouTube or Google.
+
+---
+
+*Part of [jcodesmore-plugins](https://github.com/JCodesMore/jcodesmore-plugins).*
