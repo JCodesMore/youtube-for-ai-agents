@@ -1,0 +1,8 @@
+FROM python:3.12-slim
+WORKDIR /app
+RUN pip install --no-cache-dir agno anthropic
+COPY integrations/ integrations/
+RUN mkdir -p /data
+ENV DATABASE_URL=sqlite:////data/agno_youtube.db
+EXPOSE 7777
+CMD ["python", "integrations/agno_agent.py", "--serve"]

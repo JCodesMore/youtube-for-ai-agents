@@ -1,0 +1,18 @@
+node_modules/
+docs/research/
+docs/superpowers/
+.cookies.json
+.youtube-cookies.json
+.config.json
+.claude/
+.cursor/
+*.env
+*.env.local
+temp/
+highlight-reel-output/
+
+# v0.4.0+ runtime data (disk cache + monitor state + Agno sessions)
+.cache/
+.monitor/
+*.db
+

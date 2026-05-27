@@ -1,0 +1,1 @@
+{"version":3,"file":"channel-videos.d.ts","sourceRoot":"","sources":["../../src/tools/channel-videos.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAKxB,eAAO,MAAM,wBAAwB;;;;CAMpC,CAAC;AAEF,wBAAsB,mBAAmB,CAAC,IAAI,EAAE;IAAE,UAAU,EAAE,MAAM,CAAC;IAAC,KAAK,CAAC,EAAE,MAAM,CAAC;IAAC,IAAI,CAAC,EAAE,MAAM,CAAA;CAAE;;;;;GAapG"}

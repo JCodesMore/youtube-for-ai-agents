@@ -1,0 +1,13 @@
+{
+  "name": "youtube",
+  "description": "YouTube tools — search, transcripts, video info, channel browsing, playlists",
+  "version": "0.1.1",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "youtube": {
+      "command": "node",
+      "args": ["${extensionPath}/dist/index.js"],
+      "cwd": "${extensionPath}"
+    }
+  }
+}
