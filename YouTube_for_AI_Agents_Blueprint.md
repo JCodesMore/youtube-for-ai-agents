@@ -1,5 +1,5 @@
 # YouTube for AI Agents — Living Blueprint
-**Version:** 0.6.0 · **Updated:** 2026-05-23 · **Status:** Production
+**Version:** 0.7.0 · **Updated:** 2026-05-27 · **Status:** Production
 
 ---
 
@@ -7,7 +7,7 @@
 
 An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTube research capabilities — search, transcripts, video/channel/playlist metadata, trend discovery, video clipping, and batch processing. Works anonymously out of the box; personalized mode available via cookie-based auth.
 
-**Current tool count:** 17 tools  
+**Current tool count:** 18 tools  
 **Supported platforms:** Claude Code, Cursor, Codex, OpenCode, Gemini CLI  
 **Distribution:** npm (`@jcodesmore/youtube-for-ai-agents`) + git clone  
 
@@ -17,13 +17,15 @@ An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTu
 
 ```
 src/
-  index.ts             Entry point — registers 11 MCP tools, stdio transport
+  index.ts             Entry point — registers 18 MCP tools, stdio transport
   config.ts            DEFAULTS + type exports for all configurable settings
   lib/
     cache.ts           TTL-based in-memory cache (video: 5min, search: 2min, channel: 10min)
-    disk-cache.ts      ★ Persistent JSON file cache (transcripts: 7 days)
-    innertube.ts       Singleton YouTube API wrapper (youtubei.js) + all data-fetch functions
-    transcript.ts      Transcript fetch, disk-cache read/write, ★ exponential-backoff retry
+    disk-cache.ts      Persistent JSON file cache (transcripts: 7 days)
+    event-bus.ts       ★ KafCa: typed in-process event bus, ring buffer (500), topic subs, replay API
+    circuit-breaker.ts ★ RRSS: CLOSED→OPEN→HALF_OPEN state machine, 60s reset, emits bus events
+    innertube.ts       Singleton YouTube API wrapper + withTimeout() + cache:hit/miss bus events
+    transcript.ts      Transcript fetch + disk cache + retry + rate:limited bus event + circuit breaker
     cookies.ts         Cookie load/save/validate/delete for personalized auth
     user-config.ts     User config overrides, deep-merge with DEFAULTS
     download.ts        yt-dlp wrapper for video/audio download + muxing
@@ -40,8 +42,9 @@ src/
     comments.ts        youtube_get_comments
     related.ts         youtube_get_related
     caption-search.ts  youtube_caption_search
-    chapters-edit.ts   ★ youtube_chapters_edit (NEW)
-    export.ts          ★ youtube_export (NEW)
+    chapters-edit.ts   youtube_chapters_edit
+    export.ts          youtube_export
+    cache-admin.ts     ★ youtube_cache_admin (NEW)
     download.ts        youtube_download
     clip.ts            youtube_clip
     highlight-reel.ts  youtube_highlight_reel
@@ -67,7 +70,7 @@ integrations/
   superagi_toolkit.py  ★ SuperAGI toolkit adapter
 ```
 
-★ = new or changed in v0.3.0
+★ = new or changed in v0.7.0
 
 ---
 
@@ -89,6 +92,7 @@ integrations/
 | `youtube_caption_search` | Full-text search within a transcript → matches + context + timestamp links | — (disk) |
 | `youtube_chapters_edit` | Auto-generate chapter timestamps via vocabulary-shift segmentation | — (disk) |
 | `youtube_export` | Full research report (Markdown/JSON): metadata + sections + comments + transcript | — (disk) |
+| `youtube_cache_admin` | Inspect/control cache + circuit breakers + event bus (stats/invalidate/warm/events) | — |
 | `youtube_download` | Download video/audio to local file | — |
 | `youtube_clip` | Extract timestamped clips + per-video highlight reel | — |
 | `youtube_highlight_reel` | Combine clips across videos into one reel | — |
@@ -109,6 +113,9 @@ integrations/
 | Sentence-level extraction (summarize) | 50k-token transcript → ~10k while preserving key signal | `src/tools/summarize.ts` |
 | Export parallel fetch | video info + summary + optional transcript + optional comments in one `Promise.allSettled` | `src/tools/export.ts` |
 | TextTiling-inspired chapter segmentation | Vocabulary-shift novelty scores — no LLM or network call needed | `src/tools/chapters-edit.ts` |
+| `withTimeout<T>()` wrapper | Hard deadline (15s init / 20s search+info) — no hanging requests | `src/lib/innertube.ts` |
+| Circuit breaker (RRSS Reliable) | Fail-fast after 5 consecutive YouTube failures; auto-recover after 60s | `src/lib/circuit-breaker.ts` |
+| KafCa event bus (ring buffer 500) | Zero-overhead observability — cache hits, rate limits, circuit state all captured in-process | `src/lib/event-bus.ts` |
 
 ---
 
@@ -172,7 +179,7 @@ Cookie/config files: gitignored, stored locally in `CLAUDE_PLUGIN_DATA` or `.coo
 
 **Use case example:** SaaS "YouTube Research Assistant" — users sign in, get their own research history, schedule daily trend digests.
 
-**How to integrate:** See `integrations/agno_agent.py` — wraps all 11 MCP tools as Agno-compatible Python functions, exposes as a production agent endpoint.
+**How to integrate:** See `integrations/agno_agent.py` — wraps all 18 MCP tools as Agno-compatible Python functions, exposes as a production agent endpoint.
 
 ### SuperAGI ⚠️ Optional / Heavier
 **Fit:** Medium. SuperAGI is a full-stack autonomous agent framework with a web GUI, Docker deployment, and marketplace toolkits. More infrastructure than needed for pure API use.
@@ -235,7 +242,16 @@ Cookie/config files: gitignored, stored locally in `CLAUDE_PLUGIN_DATA` or `.coo
 - [x] `railway.json` — single-service Railway deploy config (no Compose required)
 - [x] `integrations/agno_agent.py` — per-user RBAC via isolated SQLite tables (swap to Postgres for prod); `AGNO_API_KEY` detection; `PORT`/`HOST` env vars; updated system prompt for all 17 tools
 
-### 🔲 v0.7.0 — Ecosystem
+### ✅ v0.7.0 — Reliability (KafCa + RRSS)
+- [x] **KafCa event bus** (`src/lib/event-bus.ts`) — typed in-process event bus, ring buffer (500 events), topic subscriptions, replay API, external Kafka/Redis adapter interface
+- [x] **RRSS Robust** — `withTimeout<T>()` wrapper (15s init / 20s search+info) eliminates hanging requests
+- [x] **RRSS Reliable** — circuit breaker (`src/lib/circuit-breaker.ts`) CLOSED→OPEN→HALF_OPEN, fail-fast after 5 failures, 60s reset, emits `circuit:open` / `circuit:closed` bus events
+- [x] **RRSS Scalable** — bus `cache:hit` / `cache:miss` events in `innertube.ts`; `rate:limited` events in `transcript.ts`
+- [x] **RRSS Secure** — frozen payloads on bus events; no sensitive data in admin tool
+- [x] **`youtube_cache_admin`** — 4 actions: `stats` (cache sizes + circuit states + bus counts), `invalidate` (purge specific video IDs), `warm` (parallel pre-fetch), `events` (ring buffer replay with optional topic filter)
+- [x] **18 total tools** — up from 17
+
+### 🔲 v0.8.0 — Ecosystem
 - [ ] Notion export — POST research report to a Notion page via Notion API
 - [ ] `youtube_transcript_translate` — translate transcript to any language via LibreTranslate (free, self-hostable)
 - [ ] Live stream support — detect and transcribe live streams or premieres
@@ -245,6 +261,18 @@ Cookie/config files: gitignored, stored locally in `CLAUDE_PLUGIN_DATA` or `.coo
 ---
 
 ## Changelog
+
+### [0.7.0] — 2026-05-27
+**Added**
+- `src/lib/event-bus.ts` — KafCa typed in-process event bus. Ring buffer (500 events), per-topic subscriptions, `onAll()` wildcard listener, `replay(topic, since)` API, external adapter interface (`BusAdapter.publish()`). Singleton `bus` export. Payload objects frozen at emit time (RRSS Secure).
+- `src/lib/circuit-breaker.ts` — RRSS Reliable. Two circuit breakers: `innertubeBreaker` (YouTube API) and `transcriptBreaker`. CLOSED → OPEN after 5 consecutive failures; HALF_OPEN → CLOSED after 2 consecutive successes; OPEN → HALF_OPEN after 60s reset timeout. Emits `circuit:open` and `circuit:closed` bus events.
+- `src/tools/cache-admin.ts` — `youtube_cache_admin` tool with 4 actions: `stats` (cache entry counts, circuit breaker states, bus event counts), `invalidate` (remove video IDs from video cache), `warm` (parallel pre-fetch video info for a list of IDs), `events` (ring buffer replay with optional topic filter and limit).
+
+**Changed**
+- `src/lib/innertube.ts` — Added `withTimeout<T>(promise, ms, label)` utility (RRSS Robust); Innertube init wrapped with 15s timeout + `innertubeBreaker.call()`; search + getVideoInfo wrapped with 20s timeout + `innertubeBreaker.call()`; `bus.emit('cache:hit')` and `bus.emit('cache:miss')` added to search and getVideoInfo cache paths.
+- `src/lib/transcript.ts` — transcript fetch wrapped with `transcriptBreaker.call()`; `withRetry()` emits `bus.emit('rate:limited', {attempt, retryInMs})` before each sleep.
+- `src/index.ts` — `youtube_cache_admin` registered as 18th tool.
+- `package.json` — version bumped to 0.7.0.
 
 ### [0.6.0] — 2026-05-23
 **Added**

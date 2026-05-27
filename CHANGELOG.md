@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-05-27
+
+### Added
+- `src/lib/event-bus.ts` — KafCa typed in-process event bus. Ring buffer (500 events), per-topic `on()` subscriptions, `onAll()` wildcard, `replay(topic, since)` API, external `BusAdapter` interface for Kafka/Redis Streams plug-in. Payloads frozen at emit time (RRSS Secure). Singleton `bus` export.
+- `src/lib/circuit-breaker.ts` — RRSS Reliable. `innertubeBreaker` (YouTube API) and `transcriptBreaker`. CLOSED → OPEN after 5 consecutive failures; HALF_OPEN → CLOSED after 2 consecutive successes; OPEN → HALF_OPEN after 60 s. Emits `circuit:open` and `circuit:closed` bus events.
+- `youtube_cache_admin` — 4 actions: `stats` (cache entry counts per named cache + circuit breaker state + failure count + event bus stats), `invalidate` (remove specific video IDs from video cache so next call fetches fresh data), `warm` (parallel pre-fetch video info for a list of IDs — useful before batch operations), `events` (ring buffer replay with optional topic filter and count limit).
+
+### Changed
+- `src/lib/innertube.ts` — `withTimeout<T>(promise, ms, label)` utility added (RRSS Robust). Innertube init: 15 s timeout + `innertubeBreaker.call()`. `yt.search()` and `yt.getInfo()`: 20 s timeout + `innertubeBreaker.call()`. Cache paths now emit `bus.emit('cache:hit')` and `bus.emit('cache:miss')` for full observability.
+- `src/lib/transcript.ts` — Transcript fetch wrapped with `transcriptBreaker.call()`. `withRetry()` emits `bus.emit('rate:limited', {attempt, retryInMs})` before each sleep, replacing the silent wait.
+- `src/index.ts` — `youtube_cache_admin` imported and registered as 18th tool.
+- `package.json` — version bumped to 0.7.0.
+
 ## [0.6.0] — 2026-05-23
 
 ### Added

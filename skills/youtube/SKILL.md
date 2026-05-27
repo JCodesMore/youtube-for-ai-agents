@@ -91,6 +91,7 @@ All parameters use **camelCase**. Required params marked with *.
 - **youtube_download** — Download a video or audio track to a local file. Params: `videoId`*, `outputPath`, `quality` (default "720p"; also "best"|"1080p"|etc.), `type` ("video+audio"|"audio"|"video"), `format` (default "mp4"), `force` (bypass duration guard). Videos over 30 minutes return a warning — re-call with `force: true` to proceed.
 - **youtube_clip** — Extract one or more clips from a video by timestamp. Params: `videoId`*, `clips`* (array of `{startTime, endTime, label?}`), `outputDir`, `quality` (default "720p"), `accurate` (default false — set to `true` for highlight reels to get frame-perfect cuts; default keyframe-aligned cuts add 2-4s of padding), `force`, `highlightReel` (default true). Downloads the source once, then cuts each clip. When 2+ clips are provided, automatically combines them into a per-video **highlight reel** alongside the individual clips. Set `highlightReel: false` to get individual clips only. Timestamps accept seconds ("90"), MM:SS ("1:30"), or HH:MM:SS. **Keep clips tight — 5-10 seconds each.** One moment per clip. See "Creating Highlight Reels" below.
 - **youtube_highlight_reel** — Combine existing clip files into a single highlight reel across multiple videos. Params: `clips`* (array of file paths, min 2 — order determines playback order), `outputDir`, `label` (default "highlight-reel"). Re-encodes for clean cross-video joining. Use after clipping multiple videos with `youtube_clip` to produce one combined reel. Arrange clips in narrative order before calling.
+- **youtube_cache_admin** — Inspect and control the cache layer + circuit breakers + event bus. Params: `action`* ("stats"|"invalidate"|"warm"|"events"), `videoIds` (for invalidate/warm), `eventTopic` (filter for events), `eventLimit` (default 50). **`stats`** — shows cache entry counts for all 6 caches, circuit breaker states, and bus event topic counts. **`invalidate`** — purges specific video IDs from the video cache so the next call fetches fresh YouTube data. **`warm`** — pre-fetches video info for a list of IDs in parallel so subsequent calls are instant (use before a batch operation). **`events`** — returns recent events from the in-process event bus (cache:hit, cache:miss, rate:limited, circuit:open, tool:call, etc.) with optional topic filter. Use when a result looks stale, before warming a large batch, or to diagnose rate-limit or circuit-breaker issues.
 
 ## Presenting Results
 
@@ -142,6 +143,9 @@ Think step by step about what the user needs. Compose tools like a researcher wo
 - **"Find every mention of X in this video"** — `youtube_caption_search` → return match list with direct YouTube links for each moment
 - **"This video has no chapters — can you add them?"** — `youtube_chapters_edit` → generate timestamps + titles → return `formattedForDescription` for the user to paste into their YouTube description
 - **"Give me everything about this video in one document"** — `youtube_export` (format: "markdown", includeComments: true) → return full Markdown research report, optionally save to disk with `outputPath`
+- **"Why is this result stale?"** — `youtube_cache_admin` (action: "stats") → show cache sizes + circuit breaker state → `youtube_cache_admin` (action: "invalidate", videoIds: [id]) → next call fetches fresh data
+- **"Warm the cache before I run a big batch"** — `youtube_cache_admin` (action: "warm", videoIds: [...]) → parallel pre-fetch → "All N IDs are now cached — your batch will be instant"
+- **"What happened during that YouTube outage?"** — `youtube_cache_admin` (action: "events", eventTopic: "circuit:open", eventLimit: 20) → show timeline of failures and recovery
 - **"Alert me when [channel] posts something new"** — tell the user to run `npm run monitor -- --channel @handle --webhook URL` or schedule `--once` as a cron job
 - **"Track changes to this playlist"** — tell the user to run `npm run monitor:playlist -- --playlist PLxxxxxx --webhook URL`
 - **"What does the community think?"** — `youtube_get_comments` (sortBy: "top") → group reactions, flag debates, surface questions
@@ -240,6 +244,25 @@ These are complete, production-quality deliverables. Use them to show the user w
 
 ---
 
+### Observability (v0.7.0 tools)
+
+**"Something seems stale — is the cache working?"**
+→ `youtube_cache_admin` (action: "stats") → show entry counts for all 6 caches + circuit breaker state (CLOSED/OPEN) → if circuit is OPEN, show why with `action: "events", eventTopic: "circuit:open"`
+
+**"I'm about to process 10 videos in batch — make it fast"**
+→ `youtube_cache_admin` (action: "warm", videoIds: [id1, id2, ..., id10]) → parallel pre-fetch → "All 10 cached — your batch transcript will serve at cache speed (~50ms vs 2s per video)"
+
+**"A video returned outdated data — force a refresh"**
+→ `youtube_cache_admin` (action: "invalidate", videoIds: [videoId]) → purge from cache → re-call `youtube_get_video_info` to fetch fresh data from YouTube
+
+**"Show me everything that happened during the last rate limit"**
+→ `youtube_cache_admin` (action: "events", eventTopic: "rate:limited", eventLimit: 10) → show attempt number, retry delay, and timestamps → diagnose if the circuit breaker tripped afterward
+
+**"How efficient is the cache right now?"**
+→ `youtube_cache_admin` (action: "events") → count `cache:hit` vs `cache:miss` events → compute hit rate → "87% cache hit rate — you're mostly serving from memory with 200ms avg saved per hit"
+
+---
+
 ### Media (clip-based deliverables)
 
 **"Get the best 3 moments from this video"**
@@ -265,6 +288,8 @@ These are complete, production-quality deliverables. Use them to show the user w
 | Channel follower | `npm run monitor -- --channel @x --once` | "Run as cron — get notified on new videos" |
 | Creator | `youtube_chapters_edit` on their own video | "Paste output directly into YouTube description" |
 | Researcher | `youtube_export` with `outputPath` | "One command → full Markdown report saved to disk" |
+| Power user | `youtube_cache_admin` (action: "warm") | "Pre-heat 10 videos → batch transcript runs at cache speed" |
+| Debugger | `youtube_cache_admin` (action: "events") | "Full event timeline: hits, misses, rate limits, circuit trips" |
 
 ## Creating Highlight Reels
 

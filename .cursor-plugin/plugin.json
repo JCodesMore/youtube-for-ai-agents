@@ -1,0 +1,22 @@
+{
+  "name": "youtube",
+  "displayName": "YouTube for AI Agents",
+  "description": "YouTube tools — search, transcripts, video info, channel browsing, playlists",
+  "version": "0.2.0",
+  "author": {
+    "name": "JCodesMore",
+    "url": "https://github.com/JCodesMore"
+  },
+  "homepage": "https://github.com/JCodesMore/youtube-for-ai-agents",
+  "repository": "https://github.com/JCodesMore/youtube-for-ai-agents",
+  "license": "Apache-2.0",
+  "keywords": [
+    "youtube",
+    "mcp",
+    "transcripts",
+    "search",
+    "cursor"
+  ],
+  "skills": "./skills/",
+  "agents": "./agents/"
+}
