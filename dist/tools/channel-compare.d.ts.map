@@ -1,0 +1,1 @@
+{"version":3,"file":"channel-compare.d.ts","sourceRoot":"","sources":["../../src/tools/channel-compare.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAKxB,eAAO,MAAM,yBAAyB;;;;CAOrC,CAAC;AA2IF,wBAAsB,oBAAoB,CAAC,IAAI,EAAE;IAC/C,QAAQ,EAAE,MAAM,EAAE,CAAC;IACnB,gBAAgB,CAAC,EAAE,MAAM,CAAC;IAC1B,mBAAmB,CAAC,EAAE,OAAO,CAAC;CAC/B;;;;;GA+BA"}

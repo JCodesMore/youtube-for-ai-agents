@@ -1,5 +1,5 @@
 # YouTube for AI Agents — Living Blueprint
-**Version:** 0.7.0 · **Updated:** 2026-05-27 · **Status:** Production
+**Version:** 0.8.0 · **Updated:** 2026-06-22 · **Status:** Production
 
 ---
 
@@ -7,7 +7,7 @@
 
 An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTube research capabilities — search, transcripts, video/channel/playlist metadata, trend discovery, video clipping, and batch processing. Works anonymously out of the box; personalized mode available via cookie-based auth.
 
-**Current tool count:** 18 tools  
+**Current tool count:** 19 tools  
 **Supported platforms:** Claude Code, Cursor, Codex, OpenCode, Gemini CLI  
 **Distribution:** npm (`@jcodesmore/youtube-for-ai-agents`) + git clone  
 
@@ -17,7 +17,7 @@ An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTu
 
 ```
 src/
-  index.ts             Entry point — registers 18 MCP tools, stdio transport
+  index.ts             Entry point — registers 19 MCP tools, stdio transport
   config.ts            DEFAULTS + type exports for all configurable settings
   lib/
     cache.ts           TTL-based in-memory cache (video: 5min, search: 2min, channel: 10min)
@@ -44,7 +44,8 @@ src/
     caption-search.ts  youtube_caption_search
     chapters-edit.ts   youtube_chapters_edit
     export.ts          youtube_export
-    cache-admin.ts     ★ youtube_cache_admin (NEW)
+    cache-admin.ts     youtube_cache_admin
+    channel-compare.ts ★ youtube_channel_compare (NEW v0.8.0)
     download.ts        youtube_download
     clip.ts            youtube_clip
     highlight-reel.ts  youtube_highlight_reel
@@ -70,7 +71,7 @@ integrations/
   superagi_toolkit.py  ★ SuperAGI toolkit adapter
 ```
 
-★ = new or changed in v0.7.0
+★ = new or changed in v0.8.0
 
 ---
 
@@ -93,6 +94,7 @@ integrations/
 | `youtube_chapters_edit` | Auto-generate chapter timestamps via vocabulary-shift segmentation | — (disk) |
 | `youtube_export` | Full research report (Markdown/JSON): metadata + sections + comments + transcript | — (disk) |
 | `youtube_cache_admin` | Inspect/control cache + circuit breakers + event bus (stats/invalidate/warm/events) | — |
+| `youtube_channel_compare` ★ | Side-by-side compare 2–5 channels: info + engagement + cadence + rankings | 10 min (info) |
 | `youtube_download` | Download video/audio to local file | — |
 | `youtube_clip` | Extract timestamped clips + per-video highlight reel | — |
 | `youtube_highlight_reel` | Combine clips across videos into one reel | — |

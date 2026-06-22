@@ -24,6 +24,7 @@ import { captionSearchInputSchema, handleCaptionSearch } from './tools/caption-s
 import { chaptersEditInputSchema, handleChaptersEdit } from './tools/chapters-edit.js';
 import { exportInputSchema, handleExport } from './tools/export.js';
 import { cacheAdminInputSchema, handleCacheAdmin } from './tools/cache-admin.js';
+import { channelCompareInputSchema, handleChannelCompare } from './tools/channel-compare.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
@@ -128,6 +129,12 @@ server.registerTool('youtube_cache_admin', {
   inputSchema: cacheAdminInputSchema,
   annotations: READ_ONLY_ANNOTATIONS,
 }, handleCacheAdmin);
+
+server.registerTool('youtube_channel_compare', {
+  description: 'Compare 2–5 YouTube channels side-by-side. Fetches channel info plus recent videos in parallel for each, then computes engagement metrics: avg views per recent video, upload cadence (avg days between uploads), and rankings by subscribers, avg views, total views, and cadence. Failures on individual channels are isolated (partialFailures field) and do not block the rest. Use this for competitive analysis, creator benchmarking, or deciding which channel in a niche to follow. Default recentVideoCount is 10 (set to 0 to skip per-video metrics for a fast info-only compare). Set includeRecentTitles: true to get the raw recent titles per channel.',
+  inputSchema: channelCompareInputSchema,
+  annotations: READ_ONLY_ANNOTATIONS,
+}, handleChannelCompare);
 
 const DOWNLOAD_ANNOTATIONS = {
   readOnlyHint: false,

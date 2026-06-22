@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-06-22
+
+### Added
+- `youtube_channel_compare` — side-by-side comparison of 2–5 YouTube channels. Fetches channel info plus recent videos in parallel for each (configurable `recentVideoCount`, default 10), computes engagement metrics (avg views per recent video, total recent views, upload cadence in days), and returns four rankings: by subscribers, by avg views per video, by total views, by upload cadence. Per-channel failures are isolated in `partialFailures` and do not block the rest of the comparison. Optional `includeRecentTitles` returns the raw video titles per channel.
+- `src/tools/channel-compare.ts` — new tool handler with helpers: `parseCount()` (handles `1.2K`, `3.4M`, `5B` formatted counts), `parseRelativeDate()` (decodes "3 weeks ago" relative timestamps), `computeCadenceDays()` (avg days between uploads across the recent video span), `rankBy()` (generic comparator yielding human-readable name lists). All `fetchOne()` calls wrapped in try/catch — failure on one channel returns an `error`-tagged stub instead of throwing.
+
+### Changed
+- `src/index.ts` — `youtube_channel_compare` imported and registered as the 19th tool.
+- `package.json` — version bumped to 0.8.0.
+
 ## [0.7.0] — 2026-05-27
 
 ### Added
