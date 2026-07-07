@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/jcodesmore-youtube-for-ai-agents-badge.png)](https://mseep.ai/app/jcodesmore-youtube-for-ai-agents)
+
 <div align="center">
 
 # YouTube for AI Agents
