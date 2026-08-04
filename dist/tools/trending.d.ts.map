@@ -1,0 +1,1 @@
+{"version":3,"file":"trending.d.ts","sourceRoot":"","sources":["../../src/tools/trending.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,CAAC,EAAE,MAAM,KAAK,CAAC;AAGxB,eAAO,MAAM,mBAAmB;;;CAK/B,CAAC;AAEF,UAAU,YAAY;IACpB,QAAQ,CAAC,EAAE,KAAK,GAAG,OAAO,GAAG,QAAQ,GAAG,QAAQ,CAAC;IACjD,KAAK,CAAC,EAAE,MAAM,CAAC;CAChB;AAED,wBAAsB,cAAc,CAAC,IAAI,EAAE,YAAY;;;;;;;;;;;;GA8BtD"}

@@ -1,4 +1,6 @@
 import { Innertube } from 'youtubei.js';
+import { withTimeout } from './timeout.js';
+export { withTimeout };
 export type SearchMode = 'personalized' | 'anonymous';
 export declare function getInstance(): Promise<{
     yt: Innertube;
@@ -123,4 +125,20 @@ export interface PlaylistInfo {
     videos: PlaylistVideo[];
 }
 export declare function getPlaylist(playlistId: string, limit: number): Promise<PlaylistInfo>;
+export interface TrendingVideo {
+    id: string;
+    title: string;
+    channel: string;
+    channelId: string;
+    views: string;
+    published: string;
+    duration: string;
+    thumbnail: string;
+    category: string;
+}
+export declare function getTrending(category: string, limit: number): Promise<{
+    videos: TrendingVideo[];
+    category: string;
+    mode: SearchMode;
+}>;
 //# sourceMappingURL=innertube.d.ts.map

@@ -9,7 +9,12 @@ import { YtDlp, type VideoInfo as YtDlpVideoInfo } from 'ytdlp-nodejs';
 const require = createRequire(import.meta.url);
 const ffmpegPath: string | null = require('ffmpeg-static');
 import { getConfig } from './user-config.js';
+import { withTimeout } from './timeout.js';
 import type { DownloadQuality, DownloadType } from '../config.js';
+
+const YTDLP_INFO_TIMEOUT_MS = 30_000;
+const YTDLP_DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
+const FFPROBE_TIMEOUT_MS = 30_000;
 
 let ytdlpInstance: YtDlp | null = null;
 
@@ -141,7 +146,7 @@ function runFfmpeg(args: string[]): Promise<void> {
 
 export function getVideoDuration(filePath: string): Promise<number> {
   const bin = assertFfmpeg();
-  return new Promise((resolve, reject) => {
+  const probe = new Promise<number>((resolve, reject) => {
     const proc = spawn(bin, ['-i', filePath], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
     proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
@@ -159,6 +164,7 @@ export function getVideoDuration(filePath: string): Promise<number> {
     });
     proc.on('error', reject);
   });
+  return withTimeout(probe, FFPROBE_TIMEOUT_MS, `getVideoDuration(${filePath})`);
 }
 
 export async function concatClips(
@@ -213,7 +219,11 @@ export async function downloadVideo(
 
   const ytdlp = getYtDlp();
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const info = await ytdlp.getInfoAsync(url) as YtDlpVideoInfo;
+  const info = await withTimeout(
+    ytdlp.getInfoAsync(url) as Promise<YtDlpVideoInfo>,
+    YTDLP_INFO_TIMEOUT_MS,
+    `ytdlp.getInfoAsync(${videoId})`
+  );
 
   const title = info.title ?? 'video';
   const durationSeconds = info.duration ?? 0;
@@ -239,25 +249,37 @@ export async function downloadVideo(
 
   if (type === 'audio') {
     const audioFormat = format === 'mp4' ? 'm4a' : format;
-    await ytdlp.download(url)
-      .filter('audioonly')
-      .type(audioFormat as any)
-      .options({ output: resolvedOutput })
-      .run();
+    await withTimeout(
+      ytdlp.download(url)
+        .filter('audioonly')
+        .type(audioFormat as any)
+        .options({ output: resolvedOutput })
+        .run(),
+      YTDLP_DOWNLOAD_TIMEOUT_MS,
+      `ytdlp.download(audio ${videoId})`
+    );
   } else if (type === 'video') {
-    await ytdlp.download(url)
-      .filter('videoonly')
-      .quality(toYtDlpQuality(quality) as any)
-      .type(format as any)
-      .options({ output: resolvedOutput })
-      .run();
+    await withTimeout(
+      ytdlp.download(url)
+        .filter('videoonly')
+        .quality(toYtDlpQuality(quality) as any)
+        .type(format as any)
+        .options({ output: resolvedOutput })
+        .run(),
+      YTDLP_DOWNLOAD_TIMEOUT_MS,
+      `ytdlp.download(video ${videoId})`
+    );
   } else {
-    await ytdlp.download(url)
-      .filter('mergevideo')
-      .quality(toYtDlpQuality(quality) as any)
-      .type(format as any)
-      .options({ output: resolvedOutput })
-      .run();
+    await withTimeout(
+      ytdlp.download(url)
+        .filter('mergevideo')
+        .quality(toYtDlpQuality(quality) as any)
+        .type(format as any)
+        .options({ output: resolvedOutput })
+        .run(),
+      YTDLP_DOWNLOAD_TIMEOUT_MS,
+      `ytdlp.download(mux ${videoId})`
+    );
   }
 
   const fileSize = formatFileSize(statSync(resolvedOutput).size);
@@ -275,7 +297,11 @@ export async function downloadToTemp(
   const config = getConfig();
   const ytdlp = getYtDlp();
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const info = await ytdlp.getInfoAsync(url) as YtDlpVideoInfo;
+  const info = await withTimeout(
+    ytdlp.getInfoAsync(url) as Promise<YtDlpVideoInfo>,
+    YTDLP_INFO_TIMEOUT_MS,
+    `ytdlp.getInfoAsync(${videoId})`
+  );
 
   const title = info.title ?? 'video';
   const durationSeconds = info.duration ?? 0;
@@ -294,12 +320,16 @@ export async function downloadToTemp(
 
   const tempMuxed = join(tmpdir(), `yt-${randomUUID().slice(0, 8)}-muxed.mp4`);
 
-  await ytdlp.download(url)
-    .filter('mergevideo')
-    .quality(toYtDlpQuality(quality) as any)
-    .type('mp4')
-    .options({ output: tempMuxed })
-    .run();
+  await withTimeout(
+    ytdlp.download(url)
+      .filter('mergevideo')
+      .quality(toYtDlpQuality(quality) as any)
+      .type('mp4')
+      .options({ output: tempMuxed })
+      .run(),
+    YTDLP_DOWNLOAD_TIMEOUT_MS,
+    `ytdlp.download(clip ${videoId})`
+  );
 
   return { tempPath: tempMuxed, title, durationSeconds };
 }

@@ -1,26 +1,42 @@
 import { Innertube } from 'youtubei.js';
 import { loadCookies } from './cookies.js';
 import { getConfig } from './user-config.js';
+import { videoInfoCache, searchCache, channelInfoCache, channelVideosCache, playlistCache, trendingCache, } from './cache.js';
+import { bus } from './event-bus.js';
+import { innertubeBreaker } from './circuit-breaker.js';
+import { withTimeout } from './timeout.js';
+export { withTimeout };
 let instance = null;
+let creating = null;
 let instanceMode = 'anonymous';
+const resolvedChannelIds = new Map();
 export async function getInstance() {
     if (instance) {
         return { yt: instance, mode: instanceMode };
     }
-    const cookieString = loadCookies();
-    instanceMode = cookieString !== null ? 'personalized' : 'anonymous';
-    const config = getConfig();
-    instance = await Innertube.create({
-        lang: config.innertube.language,
-        location: config.innertube.location,
-        retrieve_player: config.innertube.retrievePlayer,
-        ...(cookieString ? { cookie: cookieString } : {}),
-    });
+    if (!creating) {
+        const cookieString = loadCookies();
+        instanceMode = cookieString !== null ? 'personalized' : 'anonymous';
+        const config = getConfig();
+        creating = innertubeBreaker.call(() => withTimeout(Innertube.create({
+            lang: config.innertube.language,
+            location: config.innertube.location,
+            retrieve_player: config.innertube.retrievePlayer,
+            ...(cookieString ? { cookie: cookieString } : {}),
+        }), 15_000, 'Innertube.create')).catch((err) => {
+            creating = null;
+            throw err;
+        });
+    }
+    instance = await creating;
+    creating = null;
     return { yt: instance, mode: instanceMode };
 }
 export function resetInstance() {
     instance = null;
+    creating = null;
     instanceMode = 'anonymous';
+    resolvedChannelIds.clear();
 }
 // Map our intuitive duration names to youtubei.js values
 const DURATION_MAP = {
@@ -36,6 +52,13 @@ const SORT_MAP = {
     rating: 'rating',
 };
 export async function search(query, limit, type, filters = {}) {
+    const cacheKey = `${query}|${limit}|${type}|${JSON.stringify(filters)}`;
+    const cached = searchCache.get(cacheKey);
+    if (cached) {
+        bus.emit('cache:hit', { cache: 'search', key: query });
+        return cached;
+    }
+    bus.emit('cache:miss', { cache: 'search', key: query });
     const { yt, mode } = await getInstance();
     const searchType = type;
     const searchOptions = { type: searchType };
@@ -48,7 +71,7 @@ export async function search(query, limit, type, filters = {}) {
     if (filters.sortBy && filters.sortBy !== 'relevance') {
         searchOptions.sort_by = SORT_MAP[filters.sortBy] ?? filters.sortBy;
     }
-    const response = await yt.search(query, searchOptions);
+    const response = await innertubeBreaker.call(() => withTimeout(yt.search(query, searchOptions), 20_000, `search("${query}")`));
     const results = [];
     for (const item of response.results ?? []) {
         if (results.length >= limit)
@@ -104,11 +127,19 @@ export async function search(query, limit, type, filters = {}) {
             });
         }
     }
-    return { results, mode };
+    const searchResult = { results, mode };
+    searchCache.set(cacheKey, searchResult);
+    return searchResult;
 }
 export async function getVideoInfo(videoId) {
+    const cached = videoInfoCache.get(videoId);
+    if (cached) {
+        bus.emit('cache:hit', { cache: 'video', key: videoId });
+        return cached;
+    }
+    bus.emit('cache:miss', { cache: 'video', key: videoId });
     const { yt } = await getInstance();
-    const info = await yt.getInfo(videoId);
+    const info = await innertubeBreaker.call(() => withTimeout(yt.getInfo(videoId), 20_000, `getInfo(${videoId})`));
     const chapters = [];
     try {
         const markers = info.player_overlays
@@ -132,7 +163,7 @@ export async function getVideoInfo(videoId) {
     catch {
         // Chapters not available
     }
-    return {
+    const videoInfo = {
         id: info.basic_info.id ?? videoId,
         title: info.basic_info.title ?? '',
         channel: info.basic_info.author ?? '',
@@ -152,6 +183,8 @@ export async function getVideoInfo(videoId) {
         isUpcoming: info.basic_info.is_upcoming ?? false,
         chapters,
     };
+    videoInfoCache.set(videoId, videoInfo);
+    return videoInfo;
 }
 function formatDuration(seconds) {
     const h = Math.floor(seconds / 3600);
@@ -164,8 +197,11 @@ function formatDuration(seconds) {
 }
 export async function getChannelInfo(channelInput) {
     const channelId = await resolveChannelId(channelInput);
+    const cached = channelInfoCache.get(channelId);
+    if (cached)
+        return cached;
     const { yt } = await getInstance();
-    const channel = await yt.getChannel(channelId);
+    const channel = await innertubeBreaker.call(() => withTimeout(yt.getChannel(channelId), 20_000, `getChannel(${channelId})`));
     const metadata = channel.metadata;
     const headerContent = channel.header?.content;
     let description = metadata?.description ?? '';
@@ -175,7 +211,7 @@ export async function getChannelInfo(channelInput) {
     let joinedDate = '';
     let country = '';
     try {
-        const about = await channel.getAbout();
+        const about = await innertubeBreaker.call(() => withTimeout(channel.getAbout(), 15_000, `channel.getAbout(${channelId})`));
         const aboutMeta = about.metadata;
         if (aboutMeta) {
             if (aboutMeta.description)
@@ -198,7 +234,7 @@ export async function getChannelInfo(channelInput) {
     const avatar = headerContent?.image?.avatar?.image
         ?? metadata?.avatar;
     const banner = headerContent?.banner?.image;
-    return {
+    const channelInfo = {
         channelId: metadata?.external_id ?? channelId,
         name: metadata?.title ?? headerContent?.title?.text?.text ?? '',
         handle: metadata?.vanity_channel_url?.replace(/^https?:\/\/www\.youtube\.com\//, '') ?? '',
@@ -212,12 +248,18 @@ export async function getChannelInfo(channelInput) {
         thumbnail: avatar?.[0]?.url ?? '',
         banner: banner?.[0]?.url ?? '',
     };
+    channelInfoCache.set(channelId, channelInfo);
+    return channelInfo;
 }
 export async function getChannelVideos(channelUrl, limit, sort) {
     const channelId = await resolveChannelId(channelUrl);
+    const cacheKey = `${channelId}|${limit}|${sort}`;
+    const cached = channelVideosCache.get(cacheKey);
+    if (cached)
+        return cached;
     const { yt } = await getInstance();
-    const channel = await yt.getChannel(channelId);
-    const videosTab = await channel.getVideos();
+    const channel = await innertubeBreaker.call(() => withTimeout(yt.getChannel(channelId), 20_000, `getChannel(${channelId})`));
+    const videosTab = await innertubeBreaker.call(() => withTimeout(channel.getVideos(), 20_000, `channel.getVideos(${channelId})`));
     if (sort === 'popular') {
         try {
             await videosTab.applySort('Popular');
@@ -253,16 +295,22 @@ export async function getChannelVideos(channelUrl, limit, sort) {
             break;
         }
     }
-    return {
+    const channelResult = {
         channelId: channel.metadata?.external_id ?? channelId,
         channelName: channel.metadata?.title ?? '',
         videoCount: videos.length,
         videos,
     };
+    channelVideosCache.set(cacheKey, channelResult);
+    return channelResult;
 }
 export async function getPlaylist(playlistId, limit) {
+    const cacheKey = `${playlistId}|${limit}`;
+    const cached = playlistCache.get(cacheKey);
+    if (cached)
+        return cached;
     const { yt } = await getInstance();
-    const playlist = await yt.getPlaylist(playlistId);
+    const playlist = await innertubeBreaker.call(() => withTimeout(yt.getPlaylist(playlistId), 20_000, `getPlaylist(${playlistId})`));
     const info = playlist.info;
     const videos = [];
     let current = playlist;
@@ -290,7 +338,7 @@ export async function getPlaylist(playlistId, limit) {
             break;
         }
     }
-    return {
+    const playlistInfo = {
         playlistId: info?.id ?? playlistId,
         title: info?.title ?? '',
         description: info?.description ?? '',
@@ -300,23 +348,85 @@ export async function getPlaylist(playlistId, limit) {
         thumbnail: info?.thumbnails?.[0]?.url ?? '',
         videos,
     };
+    playlistCache.set(cacheKey, playlistInfo);
+    return playlistInfo;
+}
+export async function getTrending(category, limit) {
+    const cacheKey = `${category}|${limit}`;
+    const cached = trendingCache.get(cacheKey);
+    if (cached)
+        return cached;
+    const { yt, mode } = await getInstance();
+    const CATEGORY_MAP = {
+        now: 'Now',
+        music: 'Music',
+        gaming: 'Gaming',
+        movies: 'Movies',
+        default: 'Now',
+    };
+    const yttCategory = CATEGORY_MAP[category.toLowerCase()] ?? CATEGORY_MAP.default;
+    let trendingVideos = [];
+    try {
+        const trending = await yt.getTrending();
+        const rawVideos = [];
+        if (yttCategory === 'Now') {
+            rawVideos.push(...(trending.videos ?? []));
+        }
+        else if (yttCategory === 'Music') {
+            rawVideos.push(...(trending.music ?? []));
+        }
+        else if (yttCategory === 'Gaming') {
+            rawVideos.push(...(trending.gaming ?? []));
+        }
+        else if (yttCategory === 'Movies') {
+            rawVideos.push(...(trending.movies ?? []));
+        }
+        for (const v of rawVideos) {
+            if (trendingVideos.length >= limit)
+                break;
+            const id = v.video_id ?? v.id ?? '';
+            if (!id)
+                continue;
+            trendingVideos.push({
+                id,
+                title: v.title?.text ?? v.title?.toString?.() ?? '',
+                channel: v.author?.name ?? v.short_byline_text?.text ?? '',
+                channelId: v.author?.id ?? '',
+                views: v.view_count?.text ?? v.short_view_count?.text ?? '',
+                published: v.published?.text ?? '',
+                duration: v.duration?.text ?? '',
+                thumbnail: v.best_thumbnail?.url ?? v.thumbnails?.[0]?.url ?? '',
+                category: yttCategory,
+            });
+        }
+    }
+    catch {
+        // Trending not available — fall back to empty
+    }
+    const result = { videos: trendingVideos, category: yttCategory, mode };
+    trendingCache.set(cacheKey, result);
+    return result;
 }
 // --- Helpers ---
 async function resolveChannelId(input) {
     const trimmed = input.trim();
+    const cached = resolvedChannelIds.get(trimmed);
+    if (cached)
+        return cached;
     if (trimmed.startsWith('UC') && !trimmed.includes('/')) {
+        resolvedChannelIds.set(trimmed, trimmed);
         return trimmed;
     }
-    // For /channel/UCxxx URLs, extract the ID directly
     if (trimmed.startsWith('http')) {
         try {
             const match = new URL(trimmed).pathname.match(/^\/channel\/(UC[a-zA-Z0-9_-]+)/);
-            if (match)
+            if (match) {
+                resolvedChannelIds.set(trimmed, match[1]);
                 return match[1];
+            }
         }
         catch { /* fall through to resolveURL */ }
     }
-    // Use InnerTube to resolve @handles and other URL formats
     const { yt } = await getInstance();
     let urlToResolve;
     if (trimmed.startsWith('@')) {
@@ -328,9 +438,10 @@ async function resolveChannelId(input) {
     else {
         urlToResolve = `https://www.youtube.com/@${trimmed}`;
     }
-    const endpoint = await yt.resolveURL(urlToResolve);
+    const endpoint = await innertubeBreaker.call(() => withTimeout(yt.resolveURL(urlToResolve), 15_000, `resolveURL(${urlToResolve})`));
     const browseId = endpoint?.payload?.browseId;
     if (browseId && typeof browseId === 'string') {
+        resolvedChannelIds.set(trimmed, browseId);
         return browseId;
     }
     throw new Error(`Could not resolve "${input}" to a channel ID`);

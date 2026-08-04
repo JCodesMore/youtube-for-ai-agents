@@ -49,6 +49,15 @@ export const DEFAULTS = {
     location: 'US',
     retrievePlayer: false,
   },
+
+  translate: {
+    engineUrl: 'https://translate.terraprint.co',
+    apiKey: '',
+    defaultTarget: 'en',
+    chunkChars: 4500,
+    concurrency: 3,
+    timeoutMs: 30_000,
+  },
 } as const;
 
 /** Backward compatibility alias */
@@ -94,6 +103,14 @@ export type ResolvedConfig = {
     language: string;
     location: string;
     retrievePlayer: boolean;
+  };
+  translate: {
+    engineUrl: string;
+    apiKey: string;
+    defaultTarget: string;
+    chunkChars: number;
+    concurrency: number;
+    timeoutMs: number;
   };
 };
 

@@ -39,6 +39,14 @@ export declare const DEFAULTS: {
         readonly location: "US";
         readonly retrievePlayer: false;
     };
+    readonly translate: {
+        readonly engineUrl: "https://translate.terraprint.co";
+        readonly apiKey: "";
+        readonly defaultTarget: "en";
+        readonly chunkChars: 4500;
+        readonly concurrency: 3;
+        readonly timeoutMs: 30000;
+    };
 };
 /** Backward compatibility alias */
 export declare const CONFIG: {
@@ -82,6 +90,14 @@ export declare const CONFIG: {
         readonly location: "US";
         readonly retrievePlayer: false;
     };
+    readonly translate: {
+        readonly engineUrl: "https://translate.terraprint.co";
+        readonly apiKey: "";
+        readonly defaultTarget: "en";
+        readonly chunkChars: 4500;
+        readonly concurrency: 3;
+        readonly timeoutMs: 30000;
+    };
 };
 export type ResolvedConfig = {
     search: {
@@ -123,6 +139,14 @@ export type ResolvedConfig = {
         language: string;
         location: string;
         retrievePlayer: boolean;
+    };
+    translate: {
+        engineUrl: string;
+        apiKey: string;
+        defaultTarget: string;
+        chunkChars: number;
+        concurrency: number;
+        timeoutMs: number;
     };
 };
 export type SearchType = 'video' | 'channel' | 'playlist';

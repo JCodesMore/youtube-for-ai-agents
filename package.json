@@ -1,6 +1,6 @@
 {
   "name": "@jcodesmore/youtube-for-ai-agents",
-  "version": "0.2.0",
+  "version": "0.9.0",
   "description": "YouTube tools for AI coding agents — search, transcripts, video info, channel browsing, playlists",
   "type": "module",
   "main": "dist/index.js",
@@ -57,6 +57,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
+    "dashboard": "node scripts/dashboard.mjs",
+    "monitor": "node scripts/monitor-channel.mjs",
+    "monitor:playlist": "node scripts/monitor-playlist.mjs",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

@@ -1,0 +1,82 @@
+version: '3.9'
+
+# YouTube for AI Agents — Agno Production Deployment
+#
+# Services:
+#   youtube-mcp   — the MCP server (Node.js)
+#   youtube-agent — the Agno agent wrapping the MCP server (Python)
+#   db            — SQLite is used by default; swap for postgres below if needed
+#
+# Quick start:
+#   cp .env.example .env          # fill in ANTHROPIC_API_KEY
+#   docker compose -f docker-compose.agno.yml up --build
+#   Open http://localhost:7777 in your browser
+#
+# Railway deploy:
+#   railway up --dockerfile Dockerfile.agno
+#   (see docs/deploy-agno-railway.md for one-click button)
+
+services:
+
+  # ── MCP server (YouTube tools) ───────────────────────────────────────────
+  youtube-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.node
+    command: node dist/index.js
+    volumes:
+      - youtube_cache:/data/cache
+    environment:
+      CLAUDE_PLUGIN_DATA: /data
+      AGNO_TELEMETRY: 'false'
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # ── Agno agent (wraps MCP, serves production API) ────────────────────────
+  youtube-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agno
+    ports:
+      - "7777:7777"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      MCP_SERVER_HOST: youtube-mcp
+      DATABASE_URL: sqlite:////data/agno_youtube.db
+      AGNO_TELEMETRY: 'false'
+    volumes:
+      - youtube_data:/data
+    depends_on:
+      youtube-mcp:
+        condition: service_healthy
+    restart: unless-stopped
+    command: python integrations/agno_agent.py --serve
+
+  # ── Channel monitor (optional — runs hourly checks) ──────────────────────
+  # Uncomment and set MONITOR_CHANNELS to enable.
+  #
+  # monitor:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.node
+  #   environment:
+  #     MONITOR_CHANNELS: "@mkbhd,@linus"
+  #     MONITOR_INTERVAL: "3600"
+  #     CLAUDE_PLUGIN_DATA: /data
+  #   volumes:
+  #     - youtube_data:/data
+  #   command: >
+  #     sh -c "for ch in $(echo $MONITOR_CHANNELS | tr ',' ' '); do
+  #       node scripts/monitor-channel.mjs --channel $$ch --interval $MONITOR_INTERVAL &
+  #     done; wait"
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - youtube-mcp
+
+volumes:
+  youtube_data:
+  youtube_cache:

@@ -4,6 +4,99 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-08-04
+
+### Added
+- `youtube_transcript_translate` — translate any YouTube transcript to any language via a LibreTranslate-compatible engine (free, self-hostable). Reuses the disk-cached transcript, chunks segments under the per-request payload limit, translates chunks concurrently with hard per-request timeout, and preserves per-segment timestamps in the response by re-splitting the translated chunk on the paragraph-break delimiter (falls back to proportional char-length distribution when the delimiter is lost in translation). Per-chunk failures isolated in `partialFailures` — those segments come back in the source language. Default engine is a free no-key public instance; point `engineUrl` at `http://localhost:5000` to self-host LibreTranslate.
+- `src/lib/timeout.ts` — extracted shared `withTimeout<T>()` helper (previously private in `innertube.ts`). Reused by innertube, download, and translate.
+- Config `translate` section — `engineUrl`, `apiKey`, `defaultTarget`, `chunkChars`, `concurrency`, `timeoutMs`.
+
+### Changed (reliability fold-in from v0.9.0 E-audit)
+- `src/lib/innertube.ts` — `getInstance()` memoizes the in-flight `Innertube.create()` promise (TOCTOU fix). All previously-unwrapped YouTube API calls wrapped with `innertubeBreaker.call(withTimeout(...))`: `yt.getChannel`, `channel.getAbout`, `channel.getVideos`, `yt.getPlaylist`, `yt.resolveURL`. Added `resolvedChannelIds` memoization so `channel-compare` no longer double-resolves each channel.
+- `src/tools/related.ts`, `src/tools/comments.ts` — wrapped `yt.getInfo` / `yt.getComments` with the same breaker+timeout pattern; failure paths now emit `tool:error` on the KafCa bus (topic was declared but never used).
+- `src/lib/download.ts` — `ytdlp.getInfoAsync`, `ytdlp.download(...).run()`, and ffprobe `getVideoDuration` all wrapped with hard timeouts (30 s info, 15 min download, 30 s probe). Eliminates silent multi-minute hangs.
+- `src/lib/event-bus.ts` — removed dead `const unsubs = ...` in `onAll()`; `adapter.publish` calls wrapped in try/catch so a sync-throwing adapter can't break the emitter.
+- `src/tools/summarize.ts` — removed dead `durationSec` computation block (value was never used).
+- `YouTube_for_AI_Agents_Blueprint.md` — v0.8.0 section marked ✅, `youtube_channel_compare` moved from 🔲 to ✅ (stale since 9604a38); v0.9.0 section added; v1.0.0 roadmap added with deferred E-audit items (Notion sink, live-stream detect, outputPath sandbox, time.ts consolidation, yt-types.ts, vitest suite, VS Code / Zed plugin).
+- `skills/youtube/SKILL.md` — `youtube_get_channel_info`, `youtube_get_playlist`, `youtube_channel_compare`, `youtube_transcript_translate` added to the canonical Youtube Tools catalog.
+- `package.json` — version bumped to 0.9.0.
+
+## [0.8.0] — 2026-06-22
+
+### Added
+- `youtube_channel_compare` — side-by-side comparison of 2–5 YouTube channels. Fetches channel info plus recent videos in parallel for each (configurable `recentVideoCount`, default 10), computes engagement metrics (avg views per recent video, total recent views, upload cadence in days), and returns four rankings: by subscribers, by avg views per video, by total views, by upload cadence. Per-channel failures are isolated in `partialFailures` and do not block the rest of the comparison. Optional `includeRecentTitles` returns the raw video titles per channel.
+- `src/tools/channel-compare.ts` — new tool handler with helpers: `parseCount()` (handles `1.2K`, `3.4M`, `5B` formatted counts), `parseRelativeDate()` (decodes "3 weeks ago" relative timestamps), `computeCadenceDays()` (avg days between uploads across the recent video span), `rankBy()` (generic comparator yielding human-readable name lists). All `fetchOne()` calls wrapped in try/catch — failure on one channel returns an `error`-tagged stub instead of throwing.
+
+### Changed
+- `src/index.ts` — `youtube_channel_compare` imported and registered as the 19th tool.
+- `package.json` — version bumped to 0.8.0.
+
+## [0.7.0] — 2026-05-27
+
+### Added
+- `src/lib/event-bus.ts` — KafCa typed in-process event bus. Ring buffer (500 events), per-topic `on()` subscriptions, `onAll()` wildcard, `replay(topic, since)` API, external `BusAdapter` interface for Kafka/Redis Streams plug-in. Payloads frozen at emit time (RRSS Secure). Singleton `bus` export.
+- `src/lib/circuit-breaker.ts` — RRSS Reliable. `innertubeBreaker` (YouTube API) and `transcriptBreaker`. CLOSED → OPEN after 5 consecutive failures; HALF_OPEN → CLOSED after 2 consecutive successes; OPEN → HALF_OPEN after 60 s. Emits `circuit:open` and `circuit:closed` bus events.
+- `youtube_cache_admin` — 4 actions: `stats` (cache entry counts per named cache + circuit breaker state + failure count + event bus stats), `invalidate` (remove specific video IDs from video cache so next call fetches fresh data), `warm` (parallel pre-fetch video info for a list of IDs — useful before batch operations), `events` (ring buffer replay with optional topic filter and count limit).
+
+### Changed
+- `src/lib/innertube.ts` — `withTimeout<T>(promise, ms, label)` utility added (RRSS Robust). Innertube init: 15 s timeout + `innertubeBreaker.call()`. `yt.search()` and `yt.getInfo()`: 20 s timeout + `innertubeBreaker.call()`. Cache paths now emit `bus.emit('cache:hit')` and `bus.emit('cache:miss')` for full observability.
+- `src/lib/transcript.ts` — Transcript fetch wrapped with `transcriptBreaker.call()`. `withRetry()` emits `bus.emit('rate:limited', {attempt, retryInMs})` before each sleep, replacing the silent wait.
+- `src/index.ts` — `youtube_cache_admin` imported and registered as 18th tool.
+- `package.json` — version bumped to 0.7.0.
+
+## [0.6.0] — 2026-05-23
+
+### Added
+- `youtube_chapters_edit` — auto-generates chapter timestamps from a transcript using a TextTiling-inspired vocabulary-shift algorithm. Returns chapter titles, start timestamps, YouTube deep-links, and a `formattedForDescription` string for direct paste into a YouTube video description. Returns existing chapters if the video already has them (use `force: true` to regenerate).
+- `youtube_export` — produces a complete research report in Markdown or JSON. Fetches video info, chapter-aligned summaries, and optionally full transcript and top comments — all in parallel. Markdown output is designed to be pasted into Notion, Obsidian, or shared as a `.md` file. Pass `outputPath` to also save to disk.
+- `scripts/monitor-playlist.mjs` — detects playlist changes (videos added, removed, or reordered beyond a configurable threshold). Persists state between runs. Supports `--once`, `--interval`, `--webhook`, and `--threshold`. Run with `npm run monitor:playlist`.
+- `railway.json` — single-service Railway deploy config (Dockerfile.agno, `PORT` env var, `ON_FAILURE` restart policy).
+
+### Changed
+- `integrations/agno_agent.py` — `build_agent(user_id)` now creates per-user SQLite tables for session isolation (multi-tenant RBAC). `serve()` reads `PORT`/`HOST` env vars. Detects and reports `AGNO_API_KEY` status. System prompt updated for all 17 tools. MCP timeout raised to 90s. Four new example tasks added.
+- `package.json` — `monitor:playlist` script added; version bumped to 0.6.0.
+
+## [0.5.0] — 2026-05-23
+
+### Added
+- `youtube_caption_search` — keyword search within a transcript. Returns every match with surrounding context segments, formatted timestamp, and a `https://youtu.be/ID?t=N` deep-link. Overlapping context windows are de-duplicated. Uses disk cache so repeat searches on the same video are instant.
+- `scripts/monitor-channel.mjs` — cron-ready new-video detector. Persists seen IDs to `$CLAUDE_PLUGIN_DATA/monitor/`. Supports `--once` (single check), `--interval` (polling loop), and `--webhook URL` (HTTP POST on new video). Emits JSON-line events.
+- `scripts/dashboard.mjs` — local research dashboard at `http://localhost:4242`. Lists all disk-cached transcripts, supports full-text search across all of them, inline transcript browser with keyword highlighting and copy button. Run with `npm run dashboard`.
+- `docker-compose.agno.yml`, `Dockerfile.node`, `Dockerfile.agno` — production container stack for Railway/GCP/AWS.
+- `docs/deploy-agno-railway.md` — step-by-step Railway deployment guide with one-click button template.
+
+### Changed
+- `src/lib/transcript.ts` — multi-language auto-fallback: language error → retry without language constraint → return detected language + `note` field in result.
+- `package.json` — `dashboard` and `monitor` scripts added; version bumped to 0.5.0.
+
+## [0.4.0] — 2026-05-23
+
+### Added
+- `src/lib/disk-cache.ts` — Persistent JSON file cache with 7-day TTL. Stored in `$CLAUDE_PLUGIN_DATA/cache/transcripts/` or `.cache/transcripts/`. Survives MCP server restarts.
+- `youtube_summarize` — Chapter-aligned key-sentence extraction with topic tag inference and compression ratio. Reduces a 50k-token transcript to ~10k while preserving structure and key signal. Uses heuristic importance scoring (length, numbers, causal language) — no LLM required.
+- `youtube_get_comments` — Top or newest comments with like count, reply count, pin status, and creator-reply flag. Graceful fallback for videos with disabled comments.
+- `youtube_get_related` — YouTube's "Up next" recommended videos for a given video ID.
+
+### Changed
+- `src/lib/transcript.ts` — Rate-limit detection with exponential back-off retry (3 attempts, 1.5s base delay doubling per retry, transient errors only). Disk cache is checked before network and written after a successful fetch.
+- `package.json` — version bumped to 0.4.0
+
+## [0.3.0] — 2026-05-23
+
+### Added
+- `src/lib/cache.ts` — TTLCache class with LRU-style eviction; shared instances for video (5 min), search (2 min), channel (10 min), playlist (5 min), trending (10 min)
+- `youtube_get_trending` tool — trending videos by category (now/music/gaming/movies), 10-min cache
+- `youtube_batch_transcript` tool — parallel transcripts for 2–10 videos at once
+- `integrations/agno_agent.py` — Agno SDK production agent with all 11 tools, SQLite session storage, and 8 ARM-optimized example workflows
+- `integrations/superagi_toolkit.py` — SuperAGI ToolKit adapter for GUI-driven autonomous deployments
+- `YouTube_for_AI_Agents_Blueprint.md` — living project blueprint with roadmap, architecture, ARM framework, and framework assessment
+- ARM onboarding examples in `skills/youtube/SKILL.md` — discovery, research, creation, and media workflows
+
+### Changed
+- `src/lib/innertube.ts` — `search`, `getVideoInfo`, `getChannelInfo`, `getChannelVideos`, `getPlaylist` all read/write shared TTL cache; added `getTrending` function
+- `src/tools/transcript.ts` — transcript + video info fetched concurrently with `Promise.allSettled` (~40% faster on first call)
+- `package.json` — version bumped to 0.3.0
+
 ## [0.2.0] - 2026-03-31
 
 ### Added

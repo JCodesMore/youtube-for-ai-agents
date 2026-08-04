@@ -70,6 +70,14 @@ When the user pastes a YouTube URL, detect what kind it is and respond naturally
 
 All parameters use **camelCase**. Required params marked with *.
 
+- **youtube_chapters_edit** — Create chapter timestamps from scratch. Params: `videoId`*, `maxChapters` (default: 8), `windowSize` (default: 20), `language`, `force` (regenerate even if chapters exist). Returns chapter list with timestamps, YouTube deep-links, and a `formattedForDescription` string to paste directly into a YouTube description to enable chapters. If the video already has chapters, returns them unless `force: true`.
+- **youtube_export** — One-call research report. Params: `videoId`*, `format` ("markdown"|"json", default: "markdown"), `includeTranscript` (default: false), `includeComments` (default: false), `sentencesPerSection` (default: 4), `outputPath` (save to disk). Fetches everything in parallel — metadata, chapter-aligned summaries, optionally full transcript and top comments — and returns a publication-ready Markdown document. Use this as the final step in a research session to produce a shareable artifact.
+- **youtube_caption_search** — Find a word or phrase anywhere in a video. Params: `videoId`*, `query`*, `caseSensitive` (default: false), `contextLines` (segments of context before/after each match, default: 2), `maxMatches` (default: 50). Returns each match with a `youtubeLink` like `https://youtu.be/ID?t=SECONDS` so the user can jump directly to that moment. Use when you need timestamps for specific claims, every mention of a topic, or to answer "when do they talk about X?" Transcripts are disk-cached — second search on the same video is instant.
+- **youtube_summarize** — Smart extraction for long videos. Params: `videoId`*, `sentencesPerSection` (default: 5), `includeTimestamps` (default: true), `language`. Splits transcript into chapter-aligned sections, scores each segment for information density, returns top sentences per section + topic tags + condensed text. Use this instead of a raw transcript when you need to understand a long video cheaply — it cuts context usage by ~80% while keeping the key signal. The condensed text is ready to pass to any LLM.
+- **youtube_get_comments** — Read the room. Params: `videoId`*, `limit` (max 100, default 20), `sortBy` ("top"|"new"). Returns text, author, likes, replies, pinned flag, creator-reply flag. Use "top" to find what resonated most; "new" to see current reactions.
+- **youtube_get_related** — What YouTube recommends next. Params: `videoId`*, `limit` (max 30, default 15). Returns the "Up next" video list — great for topic mapping, rabbit-hole navigation, or finding the rest of a series.
+- **youtube_get_trending** — What's hot on YouTube right now. Params: `category` ("now"|"music"|"gaming"|"movies", default "now"), `limit` (max 50). Returns titles, channels, views, duration. Results cached 10 min. Start here when the user has no specific video in mind — it's the zero-friction discovery path.
+- **youtube_batch_transcript** — Watch multiple videos at once. Params: `videoIds`* (2–10 IDs), `language`, `format` ("text"|"segments"|"both"), `maxSegments`. All videos fetched in parallel — 5 videos in roughly the time of 1. Use for playlist deep-dives, comparative research, or any task spanning multiple videos.
 - **youtube_search** — Find videos by query. Params: `query`*, `limit` (max 50), `type` ("video"|"channel"|"playlist"), `uploadDate` ("all"|"today"|"week"|"month"|"year"), `duration` ("all"|"short"|"medium"|"long"), `sortBy` ("relevance"|"date"|"views"|"rating"). Returns titles, channels, views, duration, channelIds. When they want newest first, combine with `sortBy: "date"`.
 
   **Date filtering rules — important:**
@@ -79,10 +87,15 @@ All parameters use **camelCase**. Required params marked with *.
   - **When in doubt, don't filter.** A wider search that includes older relevant videos is always better than a narrow search that misses them. One compensation technique is to just increase the number of search results you get back when you expect to filter out irrelevant search results.
 - **youtube_get_transcript** — Watch a video and get everything that was said. Params: `videoId`*, `language` (default "en"). Returns timestamped segments and cleaned full text.
 - **youtube_get_video_info** — Get detailed metadata about a video. Params: `videoId`*. Returns description, tags, chapters, likes.
+- **youtube_get_channel_info** — Get metadata for a YouTube channel — name, handle, description, subscriber count, video count, joined date, country. Params: `channelInput`* (@handle, full URL, or channel ID). Resolved channel IDs are memoized for the process, so calling with `getChannelVideos` on the same handle is a single resolve.
 - **youtube_get_channel_videos** — Browse a channel's videos. Params: `channelUrl`* (@handle, URL, or channel ID), `limit` (max 500), `sort` ("newest"|"popular"|"oldest").
+- **youtube_get_playlist** — Get a playlist's metadata and its videos. Params: `playlistId`*, `limit` (max 200, default 30). Returns title, description, channel, video count, and each video with its position.
 - **youtube_download** — Download a video or audio track to a local file. Params: `videoId`*, `outputPath`, `quality` (default "720p"; also "best"|"1080p"|etc.), `type` ("video+audio"|"audio"|"video"), `format` (default "mp4"), `force` (bypass duration guard). Videos over 30 minutes return a warning — re-call with `force: true` to proceed.
 - **youtube_clip** — Extract one or more clips from a video by timestamp. Params: `videoId`*, `clips`* (array of `{startTime, endTime, label?}`), `outputDir`, `quality` (default "720p"), `accurate` (default false — set to `true` for highlight reels to get frame-perfect cuts; default keyframe-aligned cuts add 2-4s of padding), `force`, `highlightReel` (default true). Downloads the source once, then cuts each clip. When 2+ clips are provided, automatically combines them into a per-video **highlight reel** alongside the individual clips. Set `highlightReel: false` to get individual clips only. Timestamps accept seconds ("90"), MM:SS ("1:30"), or HH:MM:SS. **Keep clips tight — 5-10 seconds each.** One moment per clip. See "Creating Highlight Reels" below.
 - **youtube_highlight_reel** — Combine existing clip files into a single highlight reel across multiple videos. Params: `clips`* (array of file paths, min 2 — order determines playback order), `outputDir`, `label` (default "highlight-reel"). Re-encodes for clean cross-video joining. Use after clipping multiple videos with `youtube_clip` to produce one combined reel. Arrange clips in narrative order before calling.
+- **youtube_cache_admin** — Inspect and control the cache layer + circuit breakers + event bus. Params: `action`* ("stats"|"invalidate"|"warm"|"events"), `videoIds` (for invalidate/warm), `eventTopic` (filter for events), `eventLimit` (default 50). **`stats`** — shows cache entry counts for all 6 caches, circuit breaker states, and bus event topic counts. **`invalidate`** — purges specific video IDs from the video cache so the next call fetches fresh YouTube data. **`warm`** — pre-fetches video info for a list of IDs in parallel so subsequent calls are instant (use before a batch operation). **`events`** — returns recent events from the in-process event bus (cache:hit, cache:miss, rate:limited, circuit:open, tool:call, etc.) with optional topic filter. Use when a result looks stale, before warming a large batch, or to diagnose rate-limit or circuit-breaker issues.
+- **youtube_channel_compare** — Side-by-side comparison of 2–5 YouTube channels. Params: `channels`* (array of @handle/URL/ID), `recentVideoCount` (default 10), `includeRecentTitles` (default false). Fetches channel info plus recent videos in parallel, computes avg views per recent video, upload cadence (avg days between uploads), and returns four rankings: by subscribers, avg views, total views, cadence. Failures on individual channels are isolated in `partialFailures` and do not block the rest. Use for competitive analysis, creator benchmarking, or deciding which channel in a niche to follow.
+- **youtube_transcript_translate** — Translate a video's transcript to any language via a LibreTranslate-compatible engine. Params: `videoId`*, `targetLanguage` (default "en"), `sourceLanguage` (default "auto"), `engineUrl` (default public instance; self-host `http://localhost:5000` for unlimited use), `apiKey` (optional; falls back to `LIBRETRANSLATE_API_KEY` env), `format` ("text"|"segments"|"both"), `startTime`/`endTime`/`maxSegments` (segment filters). Reuses the disk-cached transcript, chunks it under the payload limit, translates chunks concurrently with hard timeouts, preserves per-segment timestamps in the response. Partial chunk failures are isolated in `partialFailures` — those segments come back in the source language.
 
 ## Presenting Results
 
@@ -130,6 +143,17 @@ Think step by step about what the user needs. Compose tools like a researcher wo
 - **"What does [creator] think about X?"** — Find their channel, browse videos, watch the relevant ones, synthesize
 - **"Compare what people are saying about X"** — Search, watch videos from different creators, compare their perspectives
 - **"Give me a deep dive on X"** — Search for context, watch key videos, follow threads to related channels, connect the dots
+- **"This video is too long — give me the gist"** — `youtube_summarize` (sentencesPerSection: 4) → section-by-section breakdown with timestamps
+- **"Find every mention of X in this video"** — `youtube_caption_search` → return match list with direct YouTube links for each moment
+- **"This video has no chapters — can you add them?"** — `youtube_chapters_edit` → generate timestamps + titles → return `formattedForDescription` for the user to paste into their YouTube description
+- **"Give me everything about this video in one document"** — `youtube_export` (format: "markdown", includeComments: true) → return full Markdown research report, optionally save to disk with `outputPath`
+- **"Why is this result stale?"** — `youtube_cache_admin` (action: "stats") → show cache sizes + circuit breaker state → `youtube_cache_admin` (action: "invalidate", videoIds: [id]) → next call fetches fresh data
+- **"Warm the cache before I run a big batch"** — `youtube_cache_admin` (action: "warm", videoIds: [...]) → parallel pre-fetch → "All N IDs are now cached — your batch will be instant"
+- **"What happened during that YouTube outage?"** — `youtube_cache_admin` (action: "events", eventTopic: "circuit:open", eventLimit: 20) → show timeline of failures and recovery
+- **"Alert me when [channel] posts something new"** — tell the user to run `npm run monitor -- --channel @handle --webhook URL` or schedule `--once` as a cron job
+- **"Track changes to this playlist"** — tell the user to run `npm run monitor:playlist -- --playlist PLxxxxxx --webhook URL`
+- **"What does the community think?"** — `youtube_get_comments` (sortBy: "top") → group reactions, flag debates, surface questions
+- **"Find more like this"** — `youtube_get_related` → scan results → watch the most relevant → compare perspectives
 - **"Make sure these sources are credible"** — Look up creators beyond YouTube — check their backgrounds, affiliations, published work — to assess whether their takes should carry weight
 - **"What's actually true here?"** — Watch the video, then verify specific claims or data points against external sources to separate fact from opinion
 
@@ -138,6 +162,138 @@ Think step by step about what the user needs. Compose tools like a researcher wo
 - **"Make a highlight reel"** — See the full workflow below.
 
 Show what you're finding along the way and ask if the user wants you to keep going or shift focus.
+
+## Example Tasks — What You Can Deliver
+
+These are complete, production-quality deliverables. Use them to show the user what's possible and to seed your own workflow thinking.
+
+### Discovery (zero setup — immediate value)
+
+**"What's trending right now?"**
+→ `youtube_get_trending` (category: "now") → summarize top 10 with channel + why it's trending
+
+**"What's popping in gaming this week?"**
+→ `youtube_get_trending` (category: "gaming", limit: 20) → group by game title, surface surprising hits
+
+**"Find me the most-watched Python tutorial from this year"**
+→ `youtube_search` (query: "python tutorial 2026", sortBy: "views", uploadDate: "year") → pick winner, watch it, give key takeaways
+
+---
+
+### Research (analyst-grade output)
+
+**"Give me a competitive analysis of the top 5 channels covering AI tools"**
+→ `youtube_search` (query: "AI coding tools", limit: 30) → extract unique channel names → `youtube_get_channel_info` for each → compare subscribers, video frequency, content angle → output: one-page competitive brief
+
+**"Summarize what 5 experts are saying about [topic]"**
+→ `youtube_search` (topic, limit: 20) → pick 5 top videos from different creators → `youtube_batch_transcript` (all 5 IDs, format: "text", maxSegments: 200) → synthesize into expert-perspective grid
+
+**"What does this channel actually talk about? I'm deciding whether to subscribe"**
+→ `youtube_get_channel_info` (handle) → `youtube_get_channel_videos` (sort: "popular", limit: 10) → `youtube_batch_transcript` (top 3 by views) → deliver: topic breakdown, typical video structure, whether they match the user's interests
+
+---
+
+### Creation (content + learning deliverables)
+
+**"Turn this video into a blog post outline"**
+→ `youtube_get_video_info` (detail: "full" for chapters) → `youtube_get_transcript` → extract main argument, key supporting points, notable quotes with timestamps → output: structured blog outline, ready to write
+
+**"Build me a study guide from this lecture series"**
+→ `youtube_get_playlist` (playlistId) → `youtube_batch_transcript` (first 5 IDs, format: "text") → extract: key concepts, definitions, formulas, example problems per lecture → output: markdown study guide
+
+**"I'm writing an article — what do the most popular YouTube videos say about X?"**
+→ `youtube_search` (X, sortBy: "views", limit: 20) → top 5 → `youtube_batch_transcript` → extract specific claims with video+timestamp citations → output: annotated source list, ready to quote
+
+---
+
+### Intelligence (v0.4.0 tools)
+
+**"Summarize this 2-hour documentary without burning my context window"**
+→ `youtube_summarize` (sentencesPerSection: 5) → get condensed text + topic tags in ~10k tokens → produce 3-paragraph summary with section-by-section breakdown
+
+**"What are people saying about this video?"**
+→ `youtube_get_comments` (sortBy: "top", limit: 50) → group by sentiment → identify: what people loved, what they disputed, what questions keep coming up → output: audience reaction brief
+
+**"Find more videos like this one"**
+→ `youtube_get_related` (videoId) → review titles and channels → flag the 3 most relevant + why → offer to watch any of them
+
+**"Find every time they mention [topic] in this lecture"**
+→ `youtube_caption_search` (videoId, query: "topic") → return match list with timestamps and YouTube deep-links → "Found 12 mentions — here are the key ones with links to jump straight to them"
+
+**"What timestamp do they start talking about pricing?"**
+→ `youtube_caption_search` (videoId, query: "price|pricing|cost|dollars", maxMatches: 5) → surface first relevant match → give YouTube link
+
+**"I want to clip every moment they say [phrase] — give me all the timestamps"**
+→ `youtube_caption_search` (videoId, query: phrase, maxMatches: 100) → return all timestamps → use those to build clip list for `youtube_clip`
+
+### Enterprise (v0.6.0 tools)
+
+**"Export a research report on this video"**
+→ `youtube_export` (videoId, format: "markdown", includeComments: true) → publication-ready Markdown with metadata, section insights, chapters, top comments, and full attribution footer → offer to save with `outputPath`
+
+**"This video has no chapters — can you generate them?"**
+→ `youtube_chapters_edit` (videoId, maxChapters: 10) → return chapter list + timestamps + copy-ready description text
+
+**"I need to add chapters to my 45-minute lecture video"**
+→ `youtube_chapters_edit` (videoId, maxChapters: 12, windowSize: 30) → review generated titles → give the user `formattedForDescription` to paste → done
+
+**"Research this topic end to end and give me a document I can share"**
+→ `youtube_search` (topic, limit: 10) → pick top 3 → `youtube_export` on the best one (includeComments: true) → return the complete Markdown report
+
+**"I want to understand everything about this topic — where do I start?"**
+→ `youtube_search` (topic) → `youtube_get_related` on top result → `youtube_summarize` on 3 most relevant → map the content landscape with video titles + key topics → recommend a watch order
+
+**"Does the audience agree with the creator's claims?"**
+→ `youtube_get_transcript` + `youtube_get_comments` → compare creator's key claims (from transcript) against top audience responses → flag agreements, disputes, and missing context → produce: claim-vs-reaction matrix
+
+---
+
+### Observability (v0.7.0 tools)
+
+**"Something seems stale — is the cache working?"**
+→ `youtube_cache_admin` (action: "stats") → show entry counts for all 6 caches + circuit breaker state (CLOSED/OPEN) → if circuit is OPEN, show why with `action: "events", eventTopic: "circuit:open"`
+
+**"I'm about to process 10 videos in batch — make it fast"**
+→ `youtube_cache_admin` (action: "warm", videoIds: [id1, id2, ..., id10]) → parallel pre-fetch → "All 10 cached — your batch transcript will serve at cache speed (~50ms vs 2s per video)"
+
+**"A video returned outdated data — force a refresh"**
+→ `youtube_cache_admin` (action: "invalidate", videoIds: [videoId]) → purge from cache → re-call `youtube_get_video_info` to fetch fresh data from YouTube
+
+**"Show me everything that happened during the last rate limit"**
+→ `youtube_cache_admin` (action: "events", eventTopic: "rate:limited", eventLimit: 10) → show attempt number, retry delay, and timestamps → diagnose if the circuit breaker tripped afterward
+
+**"How efficient is the cache right now?"**
+→ `youtube_cache_admin` (action: "events") → count `cache:hit` vs `cache:miss` events → compute hit rate → "87% cache hit rate — you're mostly serving from memory with 200ms avg saved per hit"
+
+---
+
+### Media (clip-based deliverables)
+
+**"Get the best 3 moments from this video"**
+→ `youtube_get_video_info` (chapters) → `youtube_get_transcript` → identify 3 self-contained moments → `youtube_clip` (accurate: true, 3 clips) → report file paths + why each moment works
+
+**"Compile the best explanations of [concept] from different creators into one reel"**
+→ `youtube_search` (concept, limit: 10) → watch each → identify the clearest explanation moment in each → `youtube_clip` per video → `youtube_highlight_reel` (arrange clips for narrative flow) → report output path
+
+---
+
+### ARM Onboarding Cheat Sheet (for the first session)
+
+| User type | First thing to show them | Follow-up hook |
+|---|---|---|
+| Curious browser | `youtube_get_trending` — "here's what's hot right now" | "Want me to watch any of these?" |
+| Researcher | `youtube_search` + top result summary | "I can watch all 5 top results at once with batch transcript" |
+| Content creator | Channel competitive analysis | "I can clip the best moments from any of their videos" |
+| Student | Playlist study guide | "I can add quizzes based on the transcript" |
+| Power user | `youtube_batch_transcript` on a playlist | "Cache means the second call is instant — try it" |
+| Long-video watcher | `youtube_summarize` on a 1-hour video | "80% fewer tokens, same key insights" |
+| Community analyst | `youtube_get_comments` on a viral video | "What are 500 people saying in one call?" |
+| Timestamp hunter | `youtube_caption_search` on a keyword | "Jump to exact moment — `youtu.be/ID?t=N`" |
+| Channel follower | `npm run monitor -- --channel @x --once` | "Run as cron — get notified on new videos" |
+| Creator | `youtube_chapters_edit` on their own video | "Paste output directly into YouTube description" |
+| Researcher | `youtube_export` with `outputPath` | "One command → full Markdown report saved to disk" |
+| Power user | `youtube_cache_admin` (action: "warm") | "Pre-heat 10 videos → batch transcript runs at cache speed" |
+| Debugger | `youtube_cache_admin` (action: "events") | "Full event timeline: hits, misses, rate limits, circuit trips" |
 
 ## Creating Highlight Reels
 

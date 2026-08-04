@@ -7,6 +7,7 @@ export type UserOverrides = {
     playlist?: Partial<ResolvedConfig['playlist']>;
     download?: Partial<ResolvedConfig['download']>;
     innertube?: Partial<ResolvedConfig['innertube']>;
+    translate?: Partial<ResolvedConfig['translate']>;
 };
 export declare function loadUserConfig(): UserOverrides;
 export declare function saveUserConfig(overrides: UserOverrides): void;

@@ -17,14 +17,28 @@ export const transcriptInputSchema = {
         .describe(`Max segments to return (capped at ${DEFAULTS.transcript.maxSegments}). Good for previewing long videos without blowing up context.`),
 };
 export async function handleTranscript(args) {
-    const result = await getTranscript(args.videoId, args.language);
-    if ('error' in result) {
+    // Fetch transcript and video info concurrently
+    const [result, videoInfoResult] = await Promise.allSettled([
+        getTranscript(args.videoId, args.language),
+        getVideoInfo(args.videoId),
+    ]);
+    if (result.status === 'rejected' || (result.status === 'fulfilled' && 'error' in result.value)) {
+        const errValue = result.status === 'rejected'
+            ? { error: String(result.reason) }
+            : result.value;
         return {
-            content: [{ type: 'text', text: JSON.stringify(result) }],
+            content: [{ type: 'text', text: JSON.stringify(errValue) }],
             isError: true,
         };
     }
-    let segments = result.segments;
+    const transcriptData = result.value;
+    if ('error' in transcriptData) {
+        return {
+            content: [{ type: 'text', text: JSON.stringify(transcriptData) }],
+            isError: true,
+        };
+    }
+    let segments = transcriptData.segments;
     if (args.startTime !== undefined) {
         segments = segments.filter(s => s.offset >= args.startTime);
     }
@@ -43,20 +57,16 @@ export async function handleTranscript(args) {
         : joinedText;
     let title = '';
     let channel = '';
-    try {
-        const info = await getVideoInfo(args.videoId);
-        title = info.title;
-        channel = info.channel;
-    }
-    catch {
-        // Non-critical enrichment
+    if (videoInfoResult.status === 'fulfilled') {
+        title = videoInfoResult.value.title;
+        channel = videoInfoResult.value.channel;
     }
     const format = args.format ?? 'both';
     const response = {
         videoId: args.videoId,
         title,
         channel,
-        language: result.language,
+        language: transcriptData.language,
         segmentCount: segments.length,
     };
     if (format === 'segments' || format === 'both') {

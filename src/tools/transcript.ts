@@ -30,16 +30,31 @@ interface TranscriptArgs {
 }
 
 export async function handleTranscript(args: TranscriptArgs) {
-  const result = await getTranscript(args.videoId, args.language);
+  // Fetch transcript and video info concurrently
+  const [result, videoInfoResult] = await Promise.allSettled([
+    getTranscript(args.videoId, args.language),
+    getVideoInfo(args.videoId),
+  ]);
 
-  if ('error' in result) {
+  if (result.status === 'rejected' || (result.status === 'fulfilled' && 'error' in result.value)) {
+    const errValue = result.status === 'rejected'
+      ? { error: String(result.reason) }
+      : result.value;
     return {
-      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+      content: [{ type: 'text' as const, text: JSON.stringify(errValue) }],
       isError: true,
     };
   }
 
-  let segments = result.segments;
+  const transcriptData = result.value as Awaited<ReturnType<typeof getTranscript>> & { segments: any[] };
+  if ('error' in transcriptData) {
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(transcriptData) }],
+      isError: true,
+    };
+  }
+
+  let segments = transcriptData.segments;
 
   if (args.startTime !== undefined) {
     segments = segments.filter(s => s.offset >= args.startTime!);
@@ -62,12 +77,9 @@ export async function handleTranscript(args: TranscriptArgs) {
 
   let title = '';
   let channel = '';
-  try {
-    const info = await getVideoInfo(args.videoId);
-    title = info.title;
-    channel = info.channel;
-  } catch {
-    // Non-critical enrichment
+  if (videoInfoResult.status === 'fulfilled') {
+    title = videoInfoResult.value.title;
+    channel = videoInfoResult.value.channel;
   }
 
   const format = args.format ?? 'both';
@@ -75,7 +87,7 @@ export async function handleTranscript(args: TranscriptArgs) {
     videoId: args.videoId,
     title,
     channel,
-    language: result.language,
+    language: transcriptData.language,
     segmentCount: segments.length,
   };
 
