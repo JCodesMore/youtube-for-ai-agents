@@ -169,12 +169,6 @@ export async function handleSummarize(args: SummarizeArgs) {
     .slice(0, 12)
     .map(([word]) => word);
 
-  // Format duration
-  const durationSec = videoInfo
-    ? parseInt(String(videoInfo.duration).split(':').reduce((acc, v, i, arr) =>
-        String(Number(acc) + Number(v) * Math.pow(60, arr.length - 1 - i)), '0'))
-    : 0;
-
   return {
     content: [{
       type: 'text' as const,

@@ -11,50 +11,54 @@ import {
 } from './cache.js';
 import { bus } from './event-bus.js';
 import { innertubeBreaker } from './circuit-breaker.js';
+import { withTimeout } from './timeout.js';
 
-/** Wrap any promise with a hard timeout — RRSS: Robust */
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`[timeout] ${label} exceeded ${ms}ms`)), ms)
-    ),
-  ]);
-}
+export { withTimeout };
 
 let instance: Innertube | null = null;
+let creating: Promise<Innertube> | null = null;
 export type SearchMode = 'personalized' | 'anonymous';
 
 let instanceMode: SearchMode = 'anonymous';
+const resolvedChannelIds = new Map<string, string>();
 
 export async function getInstance(): Promise<{ yt: Innertube; mode: SearchMode }> {
   if (instance) {
     return { yt: instance, mode: instanceMode };
   }
 
-  const cookieString = loadCookies();
-  instanceMode = cookieString !== null ? 'personalized' : 'anonymous';
+  if (!creating) {
+    const cookieString = loadCookies();
+    instanceMode = cookieString !== null ? 'personalized' : 'anonymous';
 
-  const config = getConfig();
-  instance = await innertubeBreaker.call(() =>
-    withTimeout(
-      Innertube.create({
-        lang: config.innertube.language,
-        location: config.innertube.location,
-        retrieve_player: config.innertube.retrievePlayer,
-        ...(cookieString ? { cookie: cookieString } : {}),
-      }),
-      15_000,
-      'Innertube.create'
-    )
-  );
+    const config = getConfig();
+    creating = innertubeBreaker.call(() =>
+      withTimeout(
+        Innertube.create({
+          lang: config.innertube.language,
+          location: config.innertube.location,
+          retrieve_player: config.innertube.retrievePlayer,
+          ...(cookieString ? { cookie: cookieString } : {}),
+        }),
+        15_000,
+        'Innertube.create'
+      )
+    ).catch((err) => {
+      creating = null;
+      throw err;
+    });
+  }
 
+  instance = await creating;
+  creating = null;
   return { yt: instance, mode: instanceMode };
 }
 
 export function resetInstance(): void {
   instance = null;
+  creating = null;
   instanceMode = 'anonymous';
+  resolvedChannelIds.clear();
 }
 
 // --- Search ---
@@ -334,7 +338,9 @@ export async function getChannelInfo(channelInput: string): Promise<ChannelInfo>
 
   const { yt } = await getInstance();
 
-  const channel = await yt.getChannel(channelId);
+  const channel = await innertubeBreaker.call(() =>
+    withTimeout(yt.getChannel(channelId), 20_000, `getChannel(${channelId})`)
+  );
 
   const metadata = channel.metadata as any;
   const headerContent = (channel.header as any)?.content;
@@ -347,7 +353,9 @@ export async function getChannelInfo(channelInput: string): Promise<ChannelInfo>
   let country = '';
 
   try {
-    const about = await channel.getAbout();
+    const about = await innertubeBreaker.call(() =>
+      withTimeout(channel.getAbout(), 15_000, `channel.getAbout(${channelId})`)
+    );
     const aboutMeta = (about as any).metadata;
     if (aboutMeta) {
       if (aboutMeta.description) description = aboutMeta.description;
@@ -412,8 +420,12 @@ export async function getChannelVideos(
 
   const { yt } = await getInstance();
 
-  const channel = await yt.getChannel(channelId);
-  const videosTab = await channel.getVideos();
+  const channel = await innertubeBreaker.call(() =>
+    withTimeout(yt.getChannel(channelId), 20_000, `getChannel(${channelId})`)
+  );
+  const videosTab = await innertubeBreaker.call(() =>
+    withTimeout(channel.getVideos(), 20_000, `channel.getVideos(${channelId})`)
+  );
 
   if (sort === 'popular') {
     try { await videosTab.applySort('Popular'); } catch { /* sort not available */ }
@@ -487,7 +499,9 @@ export async function getPlaylist(
 
   const { yt } = await getInstance();
 
-  const playlist = await yt.getPlaylist(playlistId);
+  const playlist = await innertubeBreaker.call(() =>
+    withTimeout(yt.getPlaylist(playlistId), 20_000, `getPlaylist(${playlistId})`)
+  );
   const info = playlist.info as any;
 
   const videos: PlaylistVideo[] = [];
@@ -610,19 +624,24 @@ export async function getTrending(
 async function resolveChannelId(input: string): Promise<string> {
   const trimmed = input.trim();
 
+  const cached = resolvedChannelIds.get(trimmed);
+  if (cached) return cached;
+
   if (trimmed.startsWith('UC') && !trimmed.includes('/')) {
+    resolvedChannelIds.set(trimmed, trimmed);
     return trimmed;
   }
 
-  // For /channel/UCxxx URLs, extract the ID directly
   if (trimmed.startsWith('http')) {
     try {
       const match = new URL(trimmed).pathname.match(/^\/channel\/(UC[a-zA-Z0-9_-]+)/);
-      if (match) return match[1];
+      if (match) {
+        resolvedChannelIds.set(trimmed, match[1]);
+        return match[1];
+      }
     } catch { /* fall through to resolveURL */ }
   }
 
-  // Use InnerTube to resolve @handles and other URL formats
   const { yt } = await getInstance();
 
   let urlToResolve: string;
@@ -634,9 +653,12 @@ async function resolveChannelId(input: string): Promise<string> {
     urlToResolve = `https://www.youtube.com/@${trimmed}`;
   }
 
-  const endpoint = await yt.resolveURL(urlToResolve);
+  const endpoint = await innertubeBreaker.call(() =>
+    withTimeout(yt.resolveURL(urlToResolve), 15_000, `resolveURL(${urlToResolve})`)
+  );
   const browseId = (endpoint as any)?.payload?.browseId;
   if (browseId && typeof browseId === 'string') {
+    resolvedChannelIds.set(trimmed, browseId);
     return browseId;
   }
 

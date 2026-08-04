@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { getInstance } from '../lib/innertube.js';
+import { getInstance, withTimeout } from '../lib/innertube.js';
+import { innertubeBreaker } from '../lib/circuit-breaker.js';
+import { bus } from '../lib/event-bus.js';
 
 export const commentsInputSchema = {
   videoId: z.string().describe('YouTube video ID'),
@@ -34,7 +36,13 @@ export async function handleComments(args: CommentsArgs) {
   const comments: CommentItem[] = [];
 
   try {
-    const commentsHeader = await (yt as any).getComments(args.videoId, args.sortBy === 'new' ? 'NEWEST_FIRST' : 'TOP_COMMENTS');
+    const commentsHeader: any = await innertubeBreaker.call(() =>
+      withTimeout(
+        (yt as any).getComments(args.videoId, args.sortBy === 'new' ? 'NEWEST_FIRST' : 'TOP_COMMENTS'),
+        20_000,
+        `getComments(${args.videoId})`
+      )
+    );
     const rawComments: any[] = commentsHeader?.contents?.contents ?? [];
 
     for (const item of rawComments) {
@@ -59,6 +67,7 @@ export async function handleComments(args: CommentsArgs) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    bus.emit('tool:error', { tool: 'youtube_get_comments', videoId: args.videoId, error: message });
     return {
       content: [{
         type: 'text' as const,

@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { getInstance } from '../lib/innertube.js';
+import { getInstance, withTimeout } from '../lib/innertube.js';
+import { innertubeBreaker } from '../lib/circuit-breaker.js';
+import { bus } from '../lib/event-bus.js';
 
 export const relatedInputSchema = {
   videoId: z.string().describe('YouTube video ID to get recommendations for'),
@@ -30,7 +32,9 @@ export async function handleRelated(args: RelatedArgs) {
   const related: RelatedVideo[] = [];
 
   try {
-    const info = await (yt as any).getInfo(args.videoId);
+    const info: any = await innertubeBreaker.call(() =>
+      withTimeout((yt as any).getInfo(args.videoId), 20_000, `getInfo(${args.videoId})`)
+    );
 
     // youtubei.js exposes related as watch_next_feed (SecondaryResults)
     const feed: any[] = info?.watch_next_feed ?? info?.secondary_results ?? [];
@@ -56,6 +60,7 @@ export async function handleRelated(args: RelatedArgs) {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    bus.emit('tool:error', { tool: 'youtube_get_related', videoId: args.videoId, error: message });
     return {
       content: [{
         type: 'text' as const,

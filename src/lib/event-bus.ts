@@ -69,8 +69,6 @@ class EventBus {
 
   /** Subscribe to every topic. */
   onAll(handler: Handler): () => void {
-    const unsubs = (Object.keys({}) as EventTopic[]);
-    // Store as wildcard via a special key trick
     const ALL = '__all__' as EventTopic;
     if (!this.handlers.has(ALL)) this.handlers.set(ALL, new Set());
     this.handlers.get(ALL)!.add(handler);
@@ -110,7 +108,9 @@ class EventBus {
 
     // External adapters (Kafka, Redis Streams, etc.)
     for (const adapter of this.adapters) {
-      adapter.publish(topic, event.payload).catch(() => { /* non-fatal */ });
+      try {
+        adapter.publish(topic, event.payload).catch(() => { /* non-fatal */ });
+      } catch { /* sync throws must not break the bus */ }
     }
   }
 

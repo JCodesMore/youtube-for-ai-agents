@@ -1,4 +1,6 @@
 import { Innertube } from 'youtubei.js';
+import { withTimeout } from './timeout.js';
+export { withTimeout };
 export type SearchMode = 'personalized' | 'anonymous';
 export declare function getInstance(): Promise<{
     yt: Innertube;

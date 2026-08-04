@@ -137,10 +137,6 @@ export async function handleSummarize(args) {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 12)
         .map(([word]) => word);
-    // Format duration
-    const durationSec = videoInfo
-        ? parseInt(String(videoInfo.duration).split(':').reduce((acc, v, i, arr) => String(Number(acc) + Number(v) * Math.pow(60, arr.length - 1 - i)), '0'))
-        : 0;
     return {
         content: [{
                 type: 'text',

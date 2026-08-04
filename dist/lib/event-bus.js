@@ -39,8 +39,6 @@ class EventBus {
     }
     /** Subscribe to every topic. */
     onAll(handler) {
-        const unsubs = Object.keys({});
-        // Store as wildcard via a special key trick
         const ALL = '__all__';
         if (!this.handlers.has(ALL))
             this.handlers.set(ALL, new Set());
@@ -83,7 +81,10 @@ class EventBus {
         }
         // External adapters (Kafka, Redis Streams, etc.)
         for (const adapter of this.adapters) {
-            adapter.publish(topic, event.payload).catch(() => { });
+            try {
+                adapter.publish(topic, event.payload).catch(() => { });
+            }
+            catch { /* sync throws must not break the bus */ }
         }
     }
     /** Replay buffered events for a topic to a new handler (catch-up on missed events). */
