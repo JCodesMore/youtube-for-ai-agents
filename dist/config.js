@@ -43,6 +43,14 @@ export const DEFAULTS = {
         location: 'US',
         retrievePlayer: false,
     },
+    translate: {
+        engineUrl: 'https://translate.terraprint.co',
+        apiKey: '',
+        defaultTarget: 'en',
+        chunkChars: 4500,
+        concurrency: 3,
+        timeoutMs: 30_000,
+    },
 };
 /** Backward compatibility alias */
 export const CONFIG = DEFAULTS;

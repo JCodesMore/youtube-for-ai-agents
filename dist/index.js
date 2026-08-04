@@ -23,6 +23,7 @@ import { chaptersEditInputSchema, handleChaptersEdit } from './tools/chapters-ed
 import { exportInputSchema, handleExport } from './tools/export.js';
 import { cacheAdminInputSchema, handleCacheAdmin } from './tools/cache-admin.js';
 import { channelCompareInputSchema, handleChannelCompare } from './tools/channel-compare.js';
+import { transcriptTranslateInputSchema, handleTranscriptTranslate } from './tools/transcript-translate.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(resolve(__dirname, '..', 'package.json'), 'utf-8'));
 const server = new McpServer({
@@ -114,6 +115,11 @@ server.registerTool('youtube_channel_compare', {
     inputSchema: channelCompareInputSchema,
     annotations: READ_ONLY_ANNOTATIONS,
 }, handleChannelCompare);
+server.registerTool('youtube_transcript_translate', {
+    description: 'Translate a YouTube video\'s transcript to any language via a LibreTranslate-compatible engine. Reuses the disk-cached transcript, chunks it to fit per-request payload limits, and translates chunks concurrently while preserving per-segment timestamps. Returns translated segments (with original offsets) and a translated fullText. Partial failures on individual chunks are isolated in "partialFailures" — those segments come back in the source language. Defaults to https://translate.terraprint.co (free, no-key). Point engineUrl at http://localhost:5000 to self-host LibreTranslate for unlimited use. Use for multilingual research, subtitle drafts, creator repurposing across languages, or reading a non-English talk in English.',
+    inputSchema: transcriptTranslateInputSchema,
+    annotations: READ_ONLY_ANNOTATIONS,
+}, handleTranscriptTranslate);
 const DOWNLOAD_ANNOTATIONS = {
     readOnlyHint: false,
     destructiveHint: false,
