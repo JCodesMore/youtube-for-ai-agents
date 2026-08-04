@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-08-04
+
+### Added
+- `youtube_transcript_translate` — translate any YouTube transcript to any language via a LibreTranslate-compatible engine (free, self-hostable). Reuses the disk-cached transcript, chunks segments under the per-request payload limit, translates chunks concurrently with hard per-request timeout, and preserves per-segment timestamps in the response by re-splitting the translated chunk on the paragraph-break delimiter (falls back to proportional char-length distribution when the delimiter is lost in translation). Per-chunk failures isolated in `partialFailures` — those segments come back in the source language. Default engine is a free no-key public instance; point `engineUrl` at `http://localhost:5000` to self-host LibreTranslate.
+- `src/lib/timeout.ts` — extracted shared `withTimeout<T>()` helper (previously private in `innertube.ts`). Reused by innertube, download, and translate.
+- Config `translate` section — `engineUrl`, `apiKey`, `defaultTarget`, `chunkChars`, `concurrency`, `timeoutMs`.
+
+### Changed (reliability fold-in from v0.9.0 E-audit)
+- `src/lib/innertube.ts` — `getInstance()` memoizes the in-flight `Innertube.create()` promise (TOCTOU fix). All previously-unwrapped YouTube API calls wrapped with `innertubeBreaker.call(withTimeout(...))`: `yt.getChannel`, `channel.getAbout`, `channel.getVideos`, `yt.getPlaylist`, `yt.resolveURL`. Added `resolvedChannelIds` memoization so `channel-compare` no longer double-resolves each channel.
+- `src/tools/related.ts`, `src/tools/comments.ts` — wrapped `yt.getInfo` / `yt.getComments` with the same breaker+timeout pattern; failure paths now emit `tool:error` on the KafCa bus (topic was declared but never used).
+- `src/lib/download.ts` — `ytdlp.getInfoAsync`, `ytdlp.download(...).run()`, and ffprobe `getVideoDuration` all wrapped with hard timeouts (30 s info, 15 min download, 30 s probe). Eliminates silent multi-minute hangs.
+- `src/lib/event-bus.ts` — removed dead `const unsubs = ...` in `onAll()`; `adapter.publish` calls wrapped in try/catch so a sync-throwing adapter can't break the emitter.
+- `src/tools/summarize.ts` — removed dead `durationSec` computation block (value was never used).
+- `YouTube_for_AI_Agents_Blueprint.md` — v0.8.0 section marked ✅, `youtube_channel_compare` moved from 🔲 to ✅ (stale since 9604a38); v0.9.0 section added; v1.0.0 roadmap added with deferred E-audit items (Notion sink, live-stream detect, outputPath sandbox, time.ts consolidation, yt-types.ts, vitest suite, VS Code / Zed plugin).
+- `skills/youtube/SKILL.md` — `youtube_get_channel_info`, `youtube_get_playlist`, `youtube_channel_compare`, `youtube_transcript_translate` added to the canonical Youtube Tools catalog.
+- `package.json` — version bumped to 0.9.0.
+
 ## [0.8.0] — 2026-06-22
 
 ### Added

@@ -1,13 +1,13 @@
 # YouTube for AI Agents — Living Blueprint
-**Version:** 0.8.0 · **Updated:** 2026-06-22 · **Status:** Production
+**Version:** 0.9.0 · **Updated:** 2026-08-04 · **Status:** Production
 
 ---
 
 ## Executive Summary
 
-An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTube research capabilities — search, transcripts, video/channel/playlist metadata, trend discovery, video clipping, and batch processing. Works anonymously out of the box; personalized mode available via cookie-based auth.
+An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTube research capabilities — search, transcripts, translation, video/channel/playlist metadata, trend discovery, video clipping, and batch processing. Works anonymously out of the box; personalized mode available via cookie-based auth.
 
-**Current tool count:** 19 tools  
+**Current tool count:** 20 tools  
 **Supported platforms:** Claude Code, Cursor, Codex, OpenCode, Gemini CLI  
 **Distribution:** npm (`@jcodesmore/youtube-for-ai-agents`) + git clone  
 
@@ -17,18 +17,19 @@ An MCP (Model Context Protocol) plugin that gives any AI coding agent full YouTu
 
 ```
 src/
-  index.ts             Entry point — registers 19 MCP tools, stdio transport
-  config.ts            DEFAULTS + type exports for all configurable settings
+  index.ts             Entry point — registers 20 MCP tools, stdio transport
+  config.ts            DEFAULTS + type exports for all configurable settings (incl. translate)
   lib/
     cache.ts           TTL-based in-memory cache (video: 5min, search: 2min, channel: 10min)
     disk-cache.ts      Persistent JSON file cache (transcripts: 7 days)
-    event-bus.ts       ★ KafCa: typed in-process event bus, ring buffer (500), topic subs, replay API
-    circuit-breaker.ts ★ RRSS: CLOSED→OPEN→HALF_OPEN state machine, 60s reset, emits bus events
-    innertube.ts       Singleton YouTube API wrapper + withTimeout() + cache:hit/miss bus events
+    event-bus.ts       KafCa: typed in-process event bus, ring buffer (500), topic subs, replay API
+    circuit-breaker.ts RRSS: CLOSED→OPEN→HALF_OPEN state machine, 60s reset, emits bus events
+    timeout.ts         ★ Shared withTimeout<T>() — used by innertube + download + translate
+    innertube.ts       Singleton YouTube API wrapper + resolveChannelId memo + all yt.* calls now breaker+timeout-wrapped
     transcript.ts      Transcript fetch + disk cache + retry + rate:limited bus event + circuit breaker
     cookies.ts         Cookie load/save/validate/delete for personalized auth
-    user-config.ts     User config overrides, deep-merge with DEFAULTS
-    download.ts        yt-dlp wrapper for video/audio download + muxing
+    user-config.ts     User config overrides, deep-merge with DEFAULTS (incl. translate)
+    download.ts        yt-dlp wrapper for video/audio download + muxing + ytdlp/ffprobe timeouts
   tools/
     search.ts          youtube_search
     transcript.ts      youtube_get_transcript  (parallel fetch: transcript + video info)
@@ -45,7 +46,8 @@ src/
     chapters-edit.ts   youtube_chapters_edit
     export.ts          youtube_export
     cache-admin.ts     youtube_cache_admin
-    channel-compare.ts ★ youtube_channel_compare (NEW v0.8.0)
+    channel-compare.ts youtube_channel_compare (v0.8.0)
+    transcript-translate.ts ★ youtube_transcript_translate (NEW v0.9.0 — LibreTranslate)
     download.ts        youtube_download
     clip.ts            youtube_clip
     highlight-reel.ts  youtube_highlight_reel
@@ -71,7 +73,7 @@ integrations/
   superagi_toolkit.py  ★ SuperAGI toolkit adapter
 ```
 
-★ = new or changed in v0.8.0
+★ = new or changed in v0.9.0
 
 ---
 
@@ -94,7 +96,8 @@ integrations/
 | `youtube_chapters_edit` | Auto-generate chapter timestamps via vocabulary-shift segmentation | — (disk) |
 | `youtube_export` | Full research report (Markdown/JSON): metadata + sections + comments + transcript | — (disk) |
 | `youtube_cache_admin` | Inspect/control cache + circuit breakers + event bus (stats/invalidate/warm/events) | — |
-| `youtube_channel_compare` ★ | Side-by-side compare 2–5 channels: info + engagement + cadence + rankings | 10 min (info) |
+| `youtube_channel_compare` | Side-by-side compare 2–5 channels: info + engagement + cadence + rankings | 10 min (info) |
+| `youtube_transcript_translate` ★ | Translate a transcript to any language via LibreTranslate; preserves timestamps; chunked concurrent fetch | — (disk hit on source) |
 | `youtube_download` | Download video/audio to local file | — |
 | `youtube_clip` | Extract timestamped clips + per-video highlight reel | — |
 | `youtube_highlight_reel` | Combine clips across videos into one reel | — |
@@ -253,16 +256,50 @@ Cookie/config files: gitignored, stored locally in `CLAUDE_PLUGIN_DATA` or `.coo
 - [x] **`youtube_cache_admin`** — 4 actions: `stats` (cache sizes + circuit states + bus counts), `invalidate` (purge specific video IDs), `warm` (parallel pre-fetch), `events` (ring buffer replay with optional topic filter)
 - [x] **18 total tools** — up from 17
 
-### 🔲 v0.8.0 — Ecosystem
-- [ ] Notion export — POST research report to a Notion page via Notion API
-- [ ] `youtube_transcript_translate` — translate transcript to any language via LibreTranslate (free, self-hostable)
-- [ ] Live stream support — detect and transcribe live streams or premieres
-- [ ] Plugin for VS Code / Zed — direct tool access from editor sidebar
-- [ ] `youtube_channel_compare` — side-by-side stats for 2–5 channels in one call
+### ✅ v0.8.0 — Ecosystem (partial ship)
+- [x] `youtube_channel_compare` — side-by-side stats for 2–5 channels in one call
+
+### ✅ v0.9.0 — Multilingual + Reliability Hardening
+- [x] `youtube_transcript_translate` — translate any transcript via LibreTranslate-compatible engine (default: public no-key instance, self-host at `http://localhost:5000`). Chunked concurrent fetch, hard per-request timeout, per-segment timestamp preservation, honest per-chunk failure isolation.
+- [x] `src/lib/timeout.ts` — extracted `withTimeout<T>()` into shared helper (used by innertube + download + translate).
+- [x] **RRSS fold-in from E-audit** — wrapped every previously-unwrapped YouTube API call with `innertubeBreaker.call(withTimeout(...))`: `yt.getChannel`, `channel.getAbout`, `channel.getVideos`, `yt.getPlaylist`, `yt.resolveURL`, plus `yt.getInfo` and `yt.getComments` in `related.ts`/`comments.ts`.
+- [x] **`getInstance()` TOCTOU fix** — memoize in-flight `Innertube.create()` promise so concurrent callers share one initialization.
+- [x] **`resolveChannelId()` memoization** — cache resolved channel IDs per input string; `channel-compare` no longer double-resolves each channel.
+- [x] **Timeouts on `ytdlp.getInfoAsync`, `ytdlp.download(...).run()`, and ffprobe `getVideoDuration`** — no more silent multi-minute hangs on network stalls.
+- [x] **KafCa `tool:error` emission** in `related.ts` and `comments.ts` failure paths (topic was declared but never used).
+- [x] Event-bus: dead `const unsubs =` removed from `onAll()`; adapter.publish wrapped in try/catch so a sync-throwing adapter can't break the emitter.
+- [x] Dead `durationSec` block removed from `summarize.ts`.
+- [x] Blueprint backlog completeness pass — v0.8.0 header + `channel_compare` marked ✅ (was still 🔲 despite shipping in 9604a38).
+- [x] SKILL.md tools list — `youtube_get_channel_info`, `youtube_get_playlist`, `youtube_channel_compare`, `youtube_transcript_translate` added (previously only in workflow examples).
+
+### 🔲 v1.0.0 — Ecosystem (continued)
+- [ ] Notion export sink for `youtube_export` — POST Markdown report to a Notion page via Notion API (`NOTION_TOKEN` env, `notionPageId` param).
+- [ ] Live stream / premiere detect + wait-and-transcribe — `is_live` / `is_upcoming` flags → poll for VOD availability → reuse transcript path.
+- [ ] Path-safety sandbox for `outputPath` in `youtube_export` and `youtube_download` (refuse absolute paths outside `$CLAUDE_PLUGIN_DATA`/cwd, or whitelist a designated dir).
+- [ ] `src/lib/time.ts` — consolidate duplicated `formatTs`/`formatDuration`/`formatSeconds` helpers currently living in 5+ files.
+- [ ] `src/lib/yt-types.ts` — typed shims around youtubei.js internal shapes to shed the 36 `as any` casts.
+- [ ] Test suite (vitest + fixtures + fault injection) — enables CI enforcement gate as a SEPARATE cascade per kafcade v3.4 CI-THICKENING-AS-SEPARATE-CASCADE.
+- [ ] Plugin for VS Code / Zed — direct tool access from editor sidebar.
 
 ---
 
 ## Changelog
+
+### [0.9.0] — 2026-08-04
+**Added**
+- `src/tools/transcript-translate.ts` — `youtube_transcript_translate` MCP tool. Reuses the disk-cached transcript, chunks segments to fit per-request payload limit (default 4500 chars), translates chunks concurrently (default 3-way) with hard per-request timeout (default 30 s) against any LibreTranslate-compatible engine. Preserves per-segment timestamps: primary path splits translated chunk on the paragraph-break delimiter that segments were joined with; fallback distributes translated text proportionally by original char length when the delimiter is lost. Per-chunk failures isolated in `partialFailures`; failed segments returned in source language. Auto source-language detection via `source: "auto"`. Emits `tool:error` on chunk failure. Default engine `https://translate.terraprint.co` (free, no-key); self-host at `http://localhost:5000` for unlimited use. Falls back to `LIBRETRANSLATE_API_KEY` env.
+- `src/lib/timeout.ts` — extracted `withTimeout<T>()` into a shared helper (previously private in `innertube.ts`). Used by innertube, download, and translate.
+- Config `translate` section — `engineUrl`, `apiKey`, `defaultTarget`, `chunkChars`, `concurrency`, `timeoutMs`.
+
+**Changed (reliability fold-in from v0.9.0 E-audit)**
+- `src/lib/innertube.ts` — `getInstance()` memoizes in-flight `Innertube.create()` promise so concurrent callers don't double-initialize (TOCTOU fix). All previously-unwrapped YouTube API calls now wrapped with `innertubeBreaker.call(withTimeout(...))`: `yt.getChannel`, `channel.getAbout`, `channel.getVideos`, `yt.getPlaylist`, `yt.resolveURL`. Added `resolvedChannelIds` Map to memoize `resolveChannelId` results per input string — `channel-compare` no longer double-resolves each channel across `getChannelInfo` + `getChannelVideos`.
+- `src/tools/related.ts`, `src/tools/comments.ts` — wrapped `yt.getInfo` and `yt.getComments` with `innertubeBreaker.call(withTimeout(...))`; failure paths now `bus.emit('tool:error')` (topic was declared but never used).
+- `src/lib/download.ts` — `ytdlp.getInfoAsync`, `ytdlp.download(...).run()`, and ffprobe `getVideoDuration` all wrapped with hard timeouts (30 s info, 15 min download, 30 s probe). Eliminates silent multi-minute hangs on network stalls.
+- `src/lib/event-bus.ts` — removed dead `const unsubs = ...` in `onAll()`; `adapter.publish` calls wrapped in try/catch so a synchronously-throwing adapter can't break the emitter.
+- `src/tools/summarize.ts` — removed dead `durationSec` computation block (value was never used in the response).
+- `YouTube_for_AI_Agents_Blueprint.md` — v0.8.0 header marked ✅; `youtube_channel_compare` moved from 🔲 to ✅ (previously stale despite shipping in 9604a38); v0.9.0 section added with full fold-in list; v1.0.0 roadmap added with deferred audit items.
+- `skills/youtube/SKILL.md` — `youtube_get_channel_info`, `youtube_get_playlist`, `youtube_channel_compare`, and `youtube_transcript_translate` added to the canonical "Youtube Tools" catalog (previously only referenced in workflow examples for the first three).
+- `package.json` — version bumped to 0.9.0.
 
 ### [0.7.0] — 2026-05-27
 **Added**
