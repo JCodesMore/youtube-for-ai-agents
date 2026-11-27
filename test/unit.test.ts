@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseChannelRef, parsePlaylistId, parseStartTime, parseVideoId } from '../src/lib/ids.js';
 import { chooseTrack, decodeEntities, originalAudioLanguage, parseJson3, parseTranscriptPanel, sameLanguage, transcriptPanelParams } from '../src/lib/transcript.js';
 import { classify } from '../src/lib/errors.js';
@@ -222,6 +223,10 @@ describe('media helpers', () => {
 
 describe('release hygiene', () => {
   const read = (p: string) => JSON.parse(readFileSync(p, 'utf8'));
+  it('source has no stray control characters (an escaped \\b once became a backspace and broke two regexes)', () => {
+    const files = readdirSync('src', { recursive: true, encoding: 'utf8' }).filter((f) => f.endsWith('.ts'));
+    for (const file of files) expect(readFileSync(join('src', file), 'utf8'), file).not.toMatch(/[\x00-\x08\x0B\x0C\x0E-\x1F]/);
+  });
   const version = read('package.json').version;
   it.each(['.claude-plugin/plugin.json', '.cursor-plugin/plugin.json', 'gemini-extension.json'])('%s matches package.json version', (file) => {
     expect(read(file).version).toBe(version);

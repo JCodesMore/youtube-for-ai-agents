@@ -158,7 +158,7 @@ export function parseJson3(body: string): TranscriptSegment[] {
 function aboutTheVideo(error: unknown): boolean {
   const kind = classify(error);
   if (kind === 'private' || kind === 'age_restricted') return true;
-  return kind === 'unavailable' && /^ERROR/.test(error instanceof Error ? error.message : String(error));
+  return kind === 'unavailable' && /^ERROR\b/.test(error instanceof Error ? error.message : String(error));
 }
 
 /** The caption track list, from the first player client that answers. */
