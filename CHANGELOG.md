@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-11-27
+
 ### Changed
 - `youtube_clip` always returns `{ clips, highlightReel?, notes? }`, with each file's measured `duration` and `durationSeconds` in place of `clipDuration`. A single clip used to come back as a bare array.
 

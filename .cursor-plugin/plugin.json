@@ -2,7 +2,7 @@
   "name": "youtube",
   "displayName": "YouTube for AI Agents",
   "description": "Give Cursor YouTube: search, watch videos through their transcripts, read comments, see frames, browse channels and playlists, and download, clip and build highlight reels. No API key.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "author": {
     "name": "JCodesMore",
     "url": "https://github.com/JCodesMore"
