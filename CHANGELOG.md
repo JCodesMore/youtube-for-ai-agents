@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Transcripts of auto-dubbed videos, which YouTube gives an audio track and auto captions in many languages, are labeled with the language actually spoken. They came back labeled with whichever dub was listed first, such as Bangla or Arabic.
+- Asking for a dub's language no longer returns the original transcript labeled as that language. It comes from the caption files when they answer, otherwise the original comes back with a note saying so.
+- Transcripts cached by earlier versions are fetched again, so wrong labels don't linger.
+
 ## [0.3.1] - 2026-11-27
 
 ### Fixed
