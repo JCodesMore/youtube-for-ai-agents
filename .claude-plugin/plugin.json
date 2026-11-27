@@ -1,7 +1,7 @@
 {
   "name": "youtube",
   "description": "Give Claude YouTube: search, watch videos through their transcripts, read comments, see frames, browse channels and playlists, and download, clip and build highlight reels. No API key.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": {
     "name": "JCodesMore",
     "url": "https://github.com/JCodesMore"
@@ -9,11 +9,21 @@
   "homepage": "https://github.com/JCodesMore/youtube-for-ai-agents",
   "repository": "https://github.com/JCodesMore/youtube-for-ai-agents",
   "license": "Apache-2.0",
-  "keywords": ["youtube", "mcp", "transcripts", "research", "search", "clips", "video"],
+  "keywords": [
+    "youtube",
+    "mcp",
+    "transcripts",
+    "research",
+    "search",
+    "clips",
+    "video"
+  ],
   "mcpServers": {
     "youtube": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/index.js"]
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/index.js"
+      ]
     }
   }
 }

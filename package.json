@@ -1,9 +1,10 @@
 {
   "name": "@jcodesmore/youtube-for-ai-agents",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Give your AI agent YouTube: search, watch (transcripts with timestamps), channels, playlists, comments, frames, downloads, clips and highlight reels. No API key.",
   "mcpName": "io.github.jcodesmore/youtube-for-ai-agents",
   "type": "module",
+  "main": ".opencode/plugins/youtube.js",
   "bin": {
     "youtube-for-ai-agents": "./dist/index.js",
     "youtube-mcp": "./dist/index.js"
@@ -15,6 +16,7 @@
     ".claude-plugin",
     ".cursor-plugin",
     "mcp.json",
+    ".opencode",
     "gemini-extension.json",
     "GEMINI.md",
     "CHANGELOG.md",
@@ -67,14 +69,14 @@
     "prepublishOnly": "npm run check"
   },
   "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.32.2",
-    "@types/node": "^22.20.5",
-    "esbuild": "^0.28.2",
-    "typescript": "^7.0.2",
-    "undici": "^8.13.0",
-    "vitest": "^5.1.1",
-    "youtube-transcript-plus": "^2.0.5",
-    "youtubei.js": "^18.3.0",
-    "zod": "^3.23.0"
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2",
+    "undici": "8.13.0",
+    "vitest": "5.1.1",
+    "youtube-transcript-plus": "2.0.5",
+    "youtubei.js": "18.3.0",
+    "zod": "3.25.76"
   }
 }

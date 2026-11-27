@@ -2,7 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.3.0] - 2026-11-27
+
+### Fixed
+- The plugin now starts on a fresh install. It no longer depends on a first-session `npm install` that could race the server or fail silently, which left agents unable to open any video.
+- Transcripts work again when YouTube rate-limits caption downloads, the error behind most "couldn't fetch the video" reports. They now come from YouTube's own transcript panel, a separate system that keeps answering, with three caption-file routes behind it.
+- Transcripts work for videos in any language. They default to the language the video is spoken in and can be fetched in any language the video has, or translated by YouTube on request.
+- Every tool accepts YouTube links as people paste them (watch, youtu.be, Shorts, live, embed, music, with timestamps and tracking parameters), not only bare IDs.
+- Sign-in and settings are saved in one place the server actually reads, `~/.youtube-for-ai-agents`, instead of differing between the setup wizard and the server.
+- Clips download only the requested parts of a video instead of the whole file.
+- Channel video titles and playlist search results, which came back empty after a YouTube layout change.
+
+### Added
+- `youtube_get_comments` reads a video's top or newest comments.
+- `youtube_get_frames` returns what's on screen at given moments as images the agent can see.
+- A built-in command line: `doctor` checks search, video details and transcripts from your computer and says what to fix; `login` signs in through a separate browser window; plus `logout`, `status` and `config`.
+- Errors tell the agent what happened and what to do (`rate_limited`, `bot_check`, `no_captions`, `private`, and more), so it can explain instead of guessing.
+- Long transcripts come back in pages that fit the agent's context, with the time to continue from.
+- Transcripts are cached for a week, and repeat requests during a YouTube rate limit wait instead of making it worse.
+- A `network.proxy` setting (or `YOUTUBE_AI_AGENTS_PROXY`) for networks YouTube blocks.
+- yt-dlp and ffmpeg are fetched automatically on first use when they aren't installed.
+- The OpenCode plugin registers the server itself, so one line in `opencode.json` installs everything.
+- MCP Registry metadata (`server.json`), CI on Windows, macOS and Linux, and an automated npm and MCP Registry release.
+
+### Changed
+- The server is one bundled file with no runtime dependencies, so installs are instant and nothing is installed on first run.
+- Node.js 22 or newer is recommended (20 still runs).
+- The `youtube` skill, `/youtube:setup` and the `video-watcher` agent are rewritten around the new tools.
+- The README leads with a one-step install and a prompt you can paste to your agent; per-agent guides are updated.
+
+### Removed
+- The `SessionStart` dependency-install hook and the separate cookie and config scripts, replaced by the built-in command line.
 
 ## [0.2.0] - 2026-03-31
 
