@@ -44,9 +44,9 @@ export function classify(error: unknown): FailureKind {
   const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
 
   if (name.includes('TooManyRequest') || /too many requests|\b429\b|rate.?limit/.test(msg)) return 'rate_limited';
-  if (/sign in to confirm|not a bot|captcha|unusual traffic/.test(msg)) return 'bot_check';
-  if (/private video|video is private/.test(msg)) return 'private';
   if (/age.?restrict|inappropriate for some users|confirm your age/.test(msg)) return 'age_restricted';
+  if (/not a bot|captcha|unusual traffic|sign in to confirm/.test(msg)) return 'bot_check';
+  if (/private video|video is private/.test(msg)) return 'private';
   if (name.includes('Disabled') || name.includes('NotAvailable') || /transcripts? (is |are )?disabled|no transcripts?|no captions|captions? (are )?not available/.test(msg)) return 'no_captions';
   if (name.includes('Unavailable') || /unavailable|not available|removed|does not exist|404/.test(msg)) return 'unavailable';
   if (/enotfound|econnreset|econnrefused|etimedout|fetch failed|network|socket hang up|getaddrinfo/.test(msg)) return 'network';

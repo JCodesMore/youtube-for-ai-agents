@@ -3,6 +3,7 @@
 // Talks to live YouTube, so it needs a network connection.
 //   node test/smoke.mjs            read-only tools
 //   node test/smoke.mjs --media    also download a short clip (fetches yt-dlp/ffmpeg if missing)
+//   node test/smoke.mjs --offline  only start the server and list its tools (no network)
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -16,7 +17,8 @@ const EXPECTED_TOOLS = [
   'youtube_download', 'youtube_clip', 'youtube_highlight_reel',
 ];
 
-const media = process.argv.includes('--media');
+const offline = process.argv.includes('--offline');
+const media = !offline && process.argv.includes('--media');
 const home = mkdtempSync(join(tmpdir(), 'yt-smoke-'));
 const transport = new StdioClientTransport({
   command: process.execPath,
@@ -60,63 +62,67 @@ try {
     if (missing.length) throw new Error(`missing ${missing.join(', ')}`);
     return `${names.length} tools`;
   });
-  await check('search', async () => {
-    const out = JSON.parse(await call('youtube_search', { query: 'how to tie a bowline knot', limit: 3 }));
-    if (!out.results?.length) throw new Error('no results');
-    return out.results[0].title;
-  });
-  await check('video info from a share URL', async () => {
-    const out = JSON.parse(await call('youtube_get_video_info', { videoId: 'https://youtu.be/jNQXAC9IVRw?si=abc', detail: 'brief' }));
-    if (out.title !== 'Me at the zoo') throw new Error(`got ${out.title}`);
-  });
-  await check('transcript from a watch URL', async () => {
-    const text = await call('youtube_get_transcript', { videoId: 'https://www.youtube.com/watch?v=jNQXAC9IVRw&t=3s' });
-    if (!/elephants/i.test(text)) throw new Error(text.slice(0, 200));
-  });
-  await check('transcript picks the spoken language (TED talk with 50+ tracks)', async () => {
-    const text = await call('youtube_get_transcript', { videoId: 'Ks-_Mh1QhMc', maxSegments: 5 });
-    const header = JSON.parse(text.split('\n')[0]);
-    if (!header.language.startsWith('en')) throw new Error(`got ${header.language}`);
-    return `language ${header.language}`;
-  });
-  await check('transcript translated on request', async () => {
-    const text = await call('youtube_get_transcript', { videoId: 'jNQXAC9IVRw', language: 'fr' });
-    const header = JSON.parse(text.split('\n')[0]);
-    if (header.language !== 'fr') throw new Error(`got ${header.language}`);
-    return text.split('\n')[1];
-  });
-  await check('long transcript pages under the size cap', async () => {
-    // A 3-hour podcast.
-    const text = await call('youtube_get_transcript', { videoId: 'https://www.youtube.com/watch?v=n1E9IZfvGMA', format: 'timestamped' });
-    const header = JSON.parse(text.split('\n')[0]);
-    if (text.length > 70_000) throw new Error(`response ${text.length} chars`);
-    return header.truncated ? `paged, next at ${header.nextStartTime}s` : `fits (${text.length} chars)`;
-  });
-  await check('channel videos from an @handle', async () => {
-    const out = JSON.parse(await call('youtube_get_channel_videos', { channelUrl: '@TED', limit: 3 }));
-    if (!out.videos?.length) throw new Error('no videos');
-    return `${out.channelName}: ${out.videos[0].title}`;
-  });
-  await check('channel info from a URL', async () => {
-    const out = JSON.parse(await call('youtube_get_channel_info', { channelId: 'https://www.youtube.com/@TED/videos' }));
-    if (!out.name) throw new Error('no name');
-    return `${out.name}, ${out.subscriberCount}`;
-  });
-  await check('playlist from a URL', async () => {
-    const out = JSON.parse(await call('youtube_get_playlist', { playlistId: 'https://www.youtube.com/playlist?list=PLlT0ph_Ig5Rc8xVBw47aZfLsOGw-lxRWb', limit: 3 }));
-    if (!out.videos?.length) throw new Error('no videos');
-    return `${out.title} (${out.videoCount})`;
-  });
-  await check('comments', async () => {
-    const out = JSON.parse(await call('youtube_get_comments', { videoId: 'dQw4w9WgXcQ', limit: 5 }));
-    if (out.comments.length !== 5 || !out.comments[0].text) throw new Error(JSON.stringify(out).slice(0, 200));
-    return `${out.totalComments} total; top: "${out.comments[0].text.slice(0, 50)}"`;
-  });
-  await check('search for playlists', async () => {
-    const out = JSON.parse(await call('youtube_search', { query: 'lofi hip hop', type: 'playlist', limit: 3 }));
-    if (!out.results?.length || out.results[0].type !== 'playlist') throw new Error(JSON.stringify(out).slice(0, 200));
-    return out.results[0].title;
-  });
+  if (!offline) {
+    await check('search', async () => {
+      const out = JSON.parse(await call('youtube_search', { query: 'how to tie a bowline knot', limit: 3 }));
+      if (!out.results?.length) throw new Error('no results');
+      return out.results[0].title;
+    });
+    await check('video info from a share URL', async () => {
+      const out = JSON.parse(await call('youtube_get_video_info', { videoId: 'https://youtu.be/jNQXAC9IVRw?si=abc', detail: 'brief' }));
+      if (out.title !== 'Me at the zoo') throw new Error(`got ${out.title}`);
+    });
+    await check('transcript from a watch URL', async () => {
+      const text = await call('youtube_get_transcript', { videoId: 'https://www.youtube.com/watch?v=jNQXAC9IVRw&t=3s' });
+      if (!/elephants/i.test(text)) throw new Error(text.slice(0, 200));
+    });
+    await check('transcript picks the spoken language (TED talk with 50+ tracks)', async () => {
+      const text = await call('youtube_get_transcript', { videoId: 'Ks-_Mh1QhMc', maxSegments: 5 });
+      const header = JSON.parse(text.split('\n')[0]);
+      if (!header.language.startsWith('en')) throw new Error(`got ${header.language}`);
+      return `language ${header.language}`;
+    });
+    await check('transcript translated on request', async () => {
+      const text = await call('youtube_get_transcript', { videoId: 'jNQXAC9IVRw', language: 'fr' });
+      const header = JSON.parse(text.split('\n')[0]);
+      // Translation needs YouTube's caption files; while they're rate-limited the original comes back with a note.
+      if (header.language === 'fr') return text.split('\n')[1];
+      if (header.translationNote) return `original (${header.language}) with a translation note`;
+      throw new Error(`got ${header.language} and no translation note`);
+    });
+    await check('long transcript pages under the size cap', async () => {
+      // A 3-hour podcast.
+      const text = await call('youtube_get_transcript', { videoId: 'https://www.youtube.com/watch?v=n1E9IZfvGMA', format: 'timestamped' });
+      const header = JSON.parse(text.split('\n')[0]);
+      if (text.length > 70_000) throw new Error(`response ${text.length} chars`);
+      return header.truncated ? `paged, next at ${header.nextStartTime}s` : `fits (${text.length} chars)`;
+    });
+    await check('channel videos from an @handle', async () => {
+      const out = JSON.parse(await call('youtube_get_channel_videos', { channelUrl: '@TED', limit: 3 }));
+      if (!out.videos?.length) throw new Error('no videos');
+      return `${out.channelName}: ${out.videos[0].title}`;
+    });
+    await check('channel info from a URL', async () => {
+      const out = JSON.parse(await call('youtube_get_channel_info', { channelId: 'https://www.youtube.com/@TED/videos' }));
+      if (!out.name) throw new Error('no name');
+      return `${out.name}, ${out.subscriberCount}`;
+    });
+    await check('playlist from a URL', async () => {
+      const out = JSON.parse(await call('youtube_get_playlist', { playlistId: 'https://www.youtube.com/playlist?list=PLlT0ph_Ig5Rc8xVBw47aZfLsOGw-lxRWb', limit: 3 }));
+      if (!out.videos?.length) throw new Error('no videos');
+      return `${out.title} (${out.videoCount})`;
+    });
+    await check('comments', async () => {
+      const out = JSON.parse(await call('youtube_get_comments', { videoId: 'dQw4w9WgXcQ', limit: 5 }));
+      if (out.comments.length !== 5 || !out.comments[0].text) throw new Error(JSON.stringify(out).slice(0, 200));
+      return `${out.totalComments} total; top: "${out.comments[0].text.slice(0, 50)}"`;
+    });
+    await check('search for playlists', async () => {
+      const out = JSON.parse(await call('youtube_search', { query: 'lofi hip hop', type: 'playlist', limit: 3 }));
+      if (!out.results?.length || out.results[0].type !== 'playlist') throw new Error(JSON.stringify(out).slice(0, 200));
+      return out.results[0].title;
+    });
+  }
   await check('bad input gives an actionable error', async () => {
     const res = await client.callTool({ name: 'youtube_get_transcript', arguments: { videoId: 'not a video' } });
     const body = JSON.parse(res.content[0].text);
