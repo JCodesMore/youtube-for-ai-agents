@@ -1,7 +1,7 @@
 {
   "name": "youtube",
   "description": "YouTube for Gemini CLI: search, watch videos through their transcripts, comments, frames, channels, playlists, downloads and clips. No API key.",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "contextFileName": "GEMINI.md",
   "mcpServers": {
     "youtube": {
