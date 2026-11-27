@@ -216,7 +216,7 @@ describe('release hygiene', () => {
     expect(server.packages[0].version).toBe(version);
     expect(server.name).toBe(read('package.json').mcpName);
   });
-  it('bin paths survive npm publish (npm 11+ drops ones written as ./path)', () => {
+  it('bin paths need no correction from npm publish (it warns about ./path)', () => {
     for (const target of Object.values(read('package.json').bin as Record<string, string>)) {
       expect(target).not.toMatch(/^\.\//);
       expect(() => readFileSync(target)).not.toThrow();
