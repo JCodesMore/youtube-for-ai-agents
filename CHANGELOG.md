@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On VPN and cloud networks, where YouTube hides a video's caption list, transcripts still come back, in the requested language when the video has it, with a note when it doesn't.
 - Video details come back on VPN and cloud networks where YouTube withholds player data, with a note saying what's missing, instead of an empty result.
 - Channel video titles and playlist search results, which came back empty after a YouTube layout change.
+- `logout` also removes the browser profile `login` signed in with, not just the saved cookies.
+- An outdated yt-dlp on your PATH no longer breaks downloads, clips and frames: the plugin uses its own current copy instead, checked against yt-dlp's published checksums.
+- Highlight reels accept clips without sound, and clips with the same label no longer overwrite each other.
 
 ### Added
 - `youtube_get_comments` reads a video's top or newest comments.
@@ -41,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 - The `SessionStart` dependency-install hook and the separate cookie and config scripts, replaced by the built-in command line.
+- Sign-in and settings dotfiles (`.cookies.json`, `.config.json`) in the folder the agent runs in are no longer read, since any project could plant one. If you signed in with an older version that saved there, run `login` again.
 
 ## [0.2.0] - 2026-03-31
 

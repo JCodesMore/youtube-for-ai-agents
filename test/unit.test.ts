@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseChannelRef, parsePlaylistId, parseStartTime, parseVideoId } from '../src/lib/ids.js';
-import { chooseTrack, decodeEntities, parseJson3, parseTranscriptPanel, transcriptPanelParams } from '../src/lib/transcript.js';
+import { chooseTrack, decodeEntities, parseJson3, parseTranscriptPanel, sameLanguage, transcriptPanelParams } from '../src/lib/transcript.js';
 import { classify } from '../src/lib/errors.js';
 import { formatSort, parseTimestamp, sanitizeFilename } from '../src/lib/download.js';
-import { clock } from '../src/tools/transcript.js';
+import { clock, estimateTokens } from '../src/tools/transcript.js';
 
 describe('parseVideoId accepts whatever people paste', () => {
   const id = 'dQw4w9WgXcQ';
@@ -139,6 +139,30 @@ describe('transcript panel', () => {
       { text: 'really long trunks', offset: 7, duration: 9 },
       { text: 'that is all', offset: 16, duration: 3 },
     ]);
+  });
+});
+
+describe('panel language when YouTube hides the caption list', () => {
+  const segs = (...texts: string[]) => texts.map((text, i) => ({ text, offset: i * 3, duration: 3 }));
+  const human = segs('So today I want to talk about the science of smiling.', 'Why do we smile at strangers on the street?', 'It turns out the answer is older than language itself.');
+  const auto = segs('so today I want to talk about the science', 'of smiling why do we smile at strangers', 'on the street it turns out the answer is older');
+  const french = segs('Aujourd\x27hui je veux parler de la science du sourire.', 'Pourquoi sourions-nous aux inconnus dans la rue ?', 'La réponse est plus ancienne que le langage.');
+  it('treats human and auto captions of one talk as the same language', () => {
+    expect(sameLanguage(auto, human)).toBe(true);
+  });
+  it('tells a translation apart', () => {
+    expect(sameLanguage(auto, french)).toBe(false);
+  });
+  it('compares scripts written without spaces by character pairs', () => {
+    expect(sameLanguage(segs('今日は笑顔の科学について話します'), segs('今日は笑顔の科学について話したいと思います'))).toBe(true);
+    expect(sameLanguage(segs('今日は笑顔の科学について話します'), auto)).toBe(false);
+  });
+});
+
+describe('transcript pages fit the result limit in any script', () => {
+  it('counts Chinese, Japanese and Korean at about a token a character', () => {
+    expect(estimateTokens('a'.repeat(4000))).toBe(1000);
+    expect(estimateTokens('字'.repeat(4000))).toBe(4000);
   });
 });
 

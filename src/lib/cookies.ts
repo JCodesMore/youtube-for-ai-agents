@@ -1,8 +1,9 @@
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { DEFAULTS } from '../config.js';
 import { dataFile, ensureDataDir, legacyFiles } from './paths.js';
 
 const FILE = DEFAULTS.auth.cookieFilename;
+export const BROWSER_PROFILE = 'browser-profile';
 
 export function getCookiePath(): string {
   return dataFile(FILE);
@@ -51,13 +52,21 @@ export function saveCookies(cookieString: string): string {
   return path;
 }
 
+/**
+ * Sign out: remove the saved cookies and the browser profile `login` signed in with, which holds
+ * a full Google session of its own.
+ */
 export function deleteCookies(): boolean {
   cached = null;
   let removed = false;
   for (const path of [getCookiePath(), ...legacyFiles(FILE)]) {
-    if (existsSync(path)) {
+    if (readCookieFile(path) !== null || path === getCookiePath() && existsSync(path)) {
       try { unlinkSync(path); removed = true; } catch { /* keep going */ }
     }
+  }
+  const profile = dataFile(BROWSER_PROFILE);
+  if (existsSync(profile)) {
+    try { rmSync(profile, { recursive: true, force: true }); removed = true; } catch { /* the window may still be open */ }
   }
   return removed;
 }

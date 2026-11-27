@@ -28,12 +28,10 @@ export function dataFile(name: string): string {
 }
 
 /**
- * Places older versions stored settings and cookies (plugin data folder, or the working directory
- * as a dotfile). Read once as a fallback so upgrading users keep their sign-in.
+ * Where older versions of the Claude Code plugin stored settings and cookies, read as a fallback
+ * so upgrading users keep their sign-in. (Dotfiles in the working folder are not read: any
+ * project could plant one.)
  */
 export function legacyFiles(name: string): string[] {
-  const candidates: string[] = [];
-  if (process.env.CLAUDE_PLUGIN_DATA) candidates.push(join(process.env.CLAUDE_PLUGIN_DATA, name));
-  candidates.push(join(process.cwd(), `.${name}`));
-  return candidates;
+  return process.env.CLAUDE_PLUGIN_DATA ? [join(process.env.CLAUDE_PLUGIN_DATA, name)] : [];
 }

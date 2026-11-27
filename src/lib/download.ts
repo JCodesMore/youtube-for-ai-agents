@@ -86,6 +86,20 @@ export function sanitizeFilename(name: string): string {
     .slice(0, 150) || 'video';
 }
 
+/**
+ * Make file names unique within one request ("intro", "intro (2)"), ignoring case because
+ * Windows and macOS file systems do.
+ */
+export function uniqueNames(names: string[]): string[] {
+  const taken = new Set<string>();
+  return names.map((name) => {
+    let candidate = name;
+    for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = `${name} (${n})`;
+    taken.add(candidate.toLowerCase());
+    return candidate;
+  });
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -170,28 +184,49 @@ function guard(title: string, durationSeconds: number, force: boolean | undefine
 
 // --- FFmpeg ---
 
-async function runFfmpeg(args: string[]): Promise<string> {
+async function runFfmpeg(args: string[], timeoutMs: number = DOWNLOAD_TIMEOUT_MS): Promise<string> {
   const bin = await requireBinary('ffmpeg');
-  const { stderr } = await runProcess(bin, ['-hide_banner', ...args], { timeoutMs: DOWNLOAD_TIMEOUT_MS });
+  const { stderr } = await runProcess(bin, ['-hide_banner', ...args], { timeoutMs });
   return stderr;
 }
 
-export async function getVideoDuration(filePath: string): Promise<number> {
+/** Duration and whether there is an audio stream, read from what `ffmpeg -i` prints. */
+export function parseMediaInfo(ffmpegOutput: string): { durationSeconds: number; hasAudio: boolean } {
+  const m = ffmpegOutput.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  return {
+    durationSeconds: m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0,
+    hasAudio: /Stream #\d+:\d+.*: Audio:/.test(ffmpegOutput),
+  };
+}
+
+async function probeMedia(filePath: string): Promise<{ durationSeconds: number; hasAudio: boolean }> {
   const bin = await requireBinary('ffmpeg');
-  // ffmpeg with no output exits non-zero but prints the duration first.
+  // ffmpeg with no output exits non-zero but prints the stream details first.
   const stderr = await runProcess(bin, ['-hide_banner', '-i', filePath], { timeoutMs: INFO_TIMEOUT_MS })
     .then((r) => r.stderr)
     .catch((e: Error) => e.message);
-  const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-  return m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0;
+  return parseMediaInfo(stderr);
 }
+
+export async function getVideoDuration(filePath: string): Promise<number> {
+  return (await probeMedia(filePath)).durationSeconds;
+}
+
+/** Fallback length for generated silence when a clip's duration can't be read; concat pads the rest. */
+const SILENCE_FALLBACK_SECONDS = 0.1;
+const REEL_AUDIO_FORMAT = 'aformat=sample_rates=48000:channel_layouts=stereo';
 
 export async function concatClips(clipPaths: string[], outputPath: string, options?: { reencode?: boolean }): Promise<void> {
   if (options?.reencode) {
     // Different sources: normalise size, frame rate and codecs so the joins are clean.
     const inputs = clipPaths.flatMap((p) => ['-i', p]);
+    const media = await Promise.all(clipPaths.map(probeMedia));
+    // A clip with no audio stream (video-only download) gets silence of the same length.
+    const audio = (i: number) => media[i].hasAudio
+      ? `[${i}:a]aresample=48000,${REEL_AUDIO_FORMAT}[a${i}]`
+      : `anullsrc=r=48000:cl=stereo,atrim=duration=${media[i].durationSeconds || SILENCE_FALLBACK_SECONDS},${REEL_AUDIO_FORMAT}[a${i}]`;
     const scale = clipPaths
-      .map((_, i) => `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}];[${i}:a]aresample=48000[a${i}]`)
+      .map((_, i) => `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}];${audio(i)}`)
       .join(';');
     const joined = clipPaths.map((_, i) => `[v${i}][a${i}]`).join('');
     await runFfmpeg([
@@ -284,10 +319,11 @@ export async function createClips(
 
   const quality = options.quality ?? getConfig().download.defaultQuality;
   const safeName = sanitizeFilename(title);
+  const fileLabels = uniqueNames(parsed.map((c) => sanitizeFilename(c.label)));
   const results: ClipResult[] = [];
 
-  for (const clip of parsed) {
-    const outputFile = join(outputDir, `${safeName} - ${sanitizeFilename(clip.label)}.mp4`);
+  for (const [i, clip] of parsed.entries()) {
+    const outputFile = join(outputDir, `${safeName} - ${fileLabels[i]}.mp4`);
     const tmp = join(tmpdir(), `yt-clip-${randomUUID().slice(0, 8)}.%(ext)s`);
     // Download only the requested range rather than the whole video.
     const args = ['-f', 'bv*+ba/b', '-S', formatSort(quality), '--merge-output-format', 'mp4', '--download-sections', `*${clip.start}-${clip.end}`];
@@ -342,11 +378,20 @@ export async function extractFrames(videoId: string, times: number[], options: {
   const select = `bv*[height<=${height}][vcodec^=avc1]/bv*[height<=${height}]/b[height<=${height}]/b`;
   const frames: Frame[] = [];
 
+  // ffmpeg reading the stream itself must go through the same proxy as yt-dlp, or YouTube sees
+  // a different IP than the URL was issued to. ffmpeg only speaks plain http:// proxies; with any
+  // other kind, skip straight to the yt-dlp route, which honours it.
+  const proxy = proxyUrl();
+  const directOk = !proxy || /^http:\/\//i.test(proxy);
+  const proxyArgs = proxy && directOk ? ['-http_proxy', proxy] : [];
+
   let stream: string | null = null;
-  try {
-    stream = lastLine(await ytdlp(['-f', select, '-g', url], INFO_TIMEOUT_MS)) || null;
-  } catch {
-    stream = null;
+  if (directOk) {
+    try {
+      stream = lastLine(await ytdlp(['-f', select, '-g', url], INFO_TIMEOUT_MS)) || null;
+    } catch {
+      stream = null;
+    }
   }
 
   for (const [i, time] of times.entries()) {
@@ -354,7 +399,7 @@ export async function extractFrames(videoId: string, times: number[], options: {
     let ok = false;
     if (stream) {
       try {
-        await runFfmpeg(['-ss', String(time), '-i', stream, '-frames:v', '1', '-q:v', '3', '-y', filePath]);
+        await runFfmpeg([...proxyArgs, '-ss', String(time), '-i', stream, '-frames:v', '1', '-q:v', '3', '-y', filePath], FRAME_TIMEOUT_MS);
         ok = existsSync(filePath);
       } catch {
         ok = false;
@@ -364,7 +409,7 @@ export async function extractFrames(videoId: string, times: number[], options: {
       const tmp = join(tmpdir(), `yt-frame-${randomUUID().slice(0, 8)}.%(ext)s`);
       const written = lastLine(await ytdlp(['-f', select, '--download-sections', `*${time}-${time + 2}`, '-o', tmp, '--print', 'after_move:filepath', url], FRAME_TIMEOUT_MS));
       try {
-        await runFfmpeg(['-i', written, '-frames:v', '1', '-q:v', '3', '-y', filePath]);
+        await runFfmpeg(['-i', written, '-frames:v', '1', '-q:v', '3', '-y', filePath], FRAME_TIMEOUT_MS);
       } finally {
         try { unlinkSync(written); } catch { /* already gone */ }
       }

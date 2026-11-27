@@ -155,7 +155,7 @@ The server didn't start, which almost always means Node.js is missing or too old
 <details>
 <summary><b>Transcripts fail with "rate limited" or "confirm you're not a bot"</b></summary>
 
-YouTube limits transcript requests per network, more on VPN and cloud IPs. It clears within an hour or so. Signing in usually avoids it, and transcripts you've read are cached for a week. You can also route traffic through a proxy:
+YouTube limits transcript requests per network, more on VPN and cloud IPs. It clears within an hour or so. Signing in usually avoids it, and transcripts you've read are cached for a week. You can also route traffic through a proxy (needs Node.js 22.19 or newer):
 
 ```bash
 npx @jcodesmore/youtube-for-ai-agents config set network.proxy http://user:pass@host:port

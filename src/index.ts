@@ -9,6 +9,7 @@ Usage: youtube-for-ai-agents [command]
   doctor         Check that search, video details and transcripts work from this computer
   login          Sign in to YouTube in a separate browser window (optional)
   logout         Forget the saved sign-in
+  status         Say whether you're signed in
   config         Show settings. Also: config set <key> <value>, config reset [key], config path
   version        Print the version
 
@@ -18,7 +19,7 @@ or wherever YOUTUBE_AI_AGENTS_HOME points.`;
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
   const { configureNetwork } = await import('./lib/network.js');
-  configureNetwork();
+  await configureNetwork();
   switch (command) {
     case undefined:
     case 'serve':

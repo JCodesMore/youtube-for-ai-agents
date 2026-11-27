@@ -30,4 +30,4 @@ Out of scope: YouTube itself, vulnerabilities in yt-dlp or ffmpeg (report those 
 
 ## What the plugin stores
 
-Your YouTube sign-in is saved only on your computer, in `~/.youtube-for-ai-agents/cookies.json` (readable only by your user where the OS supports it). It's sent only to YouTube. `logout` deletes it.
+Your YouTube sign-in is saved only on your computer, in `~/.youtube-for-ai-agents/cookies.json` (readable only by your user where the OS supports it). It's sent only to YouTube. `login` signs in through a separate browser profile in `~/.youtube-for-ai-agents/browser-profile`. `logout` deletes both.

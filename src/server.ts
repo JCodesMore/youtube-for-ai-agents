@@ -75,7 +75,7 @@ export function createServer(): McpServer {
     title: 'See video frames',
     description: 'Look at a YouTube video: returns still frames, as images, at the times you choose. Use it for what the transcript cannot tell you: slides, code, charts, products, on-screen text, or what a scene looks like. Choose times from transcript timestamps or chapters. Up to 10 per call. The first use downloads yt-dlp and ffmpeg (about a minute).',
     inputSchema: framesInputSchema,
-    annotations: READ_ONLY,
+    annotations: WRITES_FILES,
   }, safe('youtube_get_frames', handleFrames));
 
   server.registerTool('youtube_get_channel_videos', {

@@ -10,7 +10,20 @@ type TranscriptFormat = 'timestamped' | 'text' | 'segments';
  * Keep each response well under the 25k-token cap MCP clients such as Claude Code apply to
  * tool results. Longer transcripts come back in pages; `nextStartTime` asks for the next one.
  */
-const MAX_RESPONSE_CHARS = 60_000;
+const MAX_RESPONSE_TOKENS = 15_000;
+
+/**
+ * A rough token count that holds across scripts: English runs about four characters a token,
+ * while Chinese, Japanese and Korean run about one, and other non-Latin scripts in between.
+ */
+export function estimateTokens(text: string): number {
+  let tokens = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0)!;
+    tokens += code < 0x250 ? 0.25 : code >= 0x2e80 ? 1 : 0.5;
+  }
+  return Math.ceil(tokens);
+}
 
 export const transcriptInputSchema = {
   videoId: z.string().describe('YouTube video URL (any form: watch, youtu.be, Shorts, live) or 11-character video ID'),
@@ -55,12 +68,12 @@ function render(segments: TranscriptSegment[], format: TranscriptFormat, cleanup
 /** Largest prefix of segments whose rendering fits the budget. */
 function fit(segments: TranscriptSegment[], format: TranscriptFormat, cleanup: boolean): { text: string; count: number } {
   let text = render(segments, format, cleanup);
-  if (text.length <= MAX_RESPONSE_CHARS) return { text, count: segments.length };
+  if (estimateTokens(text) <= MAX_RESPONSE_TOKENS) return { text, count: segments.length };
   let lo = 1;
   let hi = segments.length;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
-    if (render(segments.slice(0, mid), format, cleanup).length <= MAX_RESPONSE_CHARS) lo = mid;
+    if (estimateTokens(render(segments.slice(0, mid), format, cleanup)) <= MAX_RESPONSE_TOKENS) lo = mid;
     else hi = mid - 1;
   }
   text = render(segments.slice(0, lo), format, cleanup);
@@ -73,9 +86,15 @@ export async function handleTranscript(args: TranscriptArgs) {
   const result = await getTranscript(videoId, args.language);
   const totalDuration = result.segments.length ? result.segments[result.segments.length - 1].offset + result.segments[result.segments.length - 1].duration : 0;
 
-  const start = args.startTime ?? parseStartTime(args.videoId);
+  const linkStart = args.startTime === undefined ? parseStartTime(args.videoId) : undefined;
+  const start = args.startTime ?? linkStart;
   let segments = result.segments;
-  if (start !== undefined) segments = segments.filter((s) => s.offset + s.duration > start);
+  if (start !== undefined) {
+    // nextStartTime is a caption's exact start: page on from it without repeating the captions
+    // that overlap it. Any other time also keeps the caption already being spoken then.
+    const exact = segments.some((s) => Math.abs(s.offset - start) < 0.0005);
+    segments = segments.filter((s) => (exact ? s.offset >= start - 0.0005 : s.offset + s.duration > start));
+  }
   if (args.endTime !== undefined) segments = segments.filter((s) => s.offset < args.endTime!);
   const cap = Math.min(args.maxSegments ?? config.transcript.maxSegments, config.transcript.maxSegments);
   segments = segments.slice(0, cap);
@@ -96,8 +115,9 @@ export async function handleTranscript(args: TranscriptArgs) {
     duration: clock(totalDuration),
     range: count ? `${clock(segments[0].offset)}-${clock(segments[count - 1].offset + segments[count - 1].duration)}` : 'none',
     segmentCount: count,
+    ...(linkStart ? { startNote: `Starts at ${clock(linkStart)} because the link has a timestamp. Pass startTime: 0 for the whole video.` } : {}),
     ...(truncated
-      ? { truncated: true, nextStartTime: Math.floor(segments[count].offset), note: `Transcript continues. Call again with startTime: ${Math.floor(segments[count].offset)} for the next part.` }
+      ? { truncated: true, nextStartTime: Math.round(segments[count].offset * 1000) / 1000, note: `Transcript continues. Call again with startTime: ${Math.round(segments[count].offset * 1000) / 1000} for the next part.` }
       : {}),
     otherLanguages: result.availableLanguages
       .filter((l) => l.languageCode !== result.language)

@@ -35,6 +35,26 @@ jobs:
       - name: Server starts and lists its tools
         run: node test/smoke.mjs --offline
 
+  oldest-node:
+    name: Starts on Node ${{ matrix.node }}
+    # The lowest versions people still run. A bundled dependency that needs a newer Node stops the
+    # server before it can say why, and the newest-version jobs above never see it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22.12"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
+      - run: node dist/index.js version
+      - name: Server starts and lists its tools
+        run: node test/smoke.mjs --offline
+
   live:
     name: Live YouTube smoke test
     # YouTube often rate-limits datacenter IPs, so this reports but never blocks.

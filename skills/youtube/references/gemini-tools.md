@@ -14,9 +14,9 @@ The YouTube tools (`youtube_search`, `youtube_get_transcript`, `youtube_get_vide
 
 There is no `video-watcher` subagent here: watch videos yourself with `youtube_get_transcript` in the current session.
 
-`${CLAUDE_PLUGIN_ROOT}` in the skills means this extension's folder (`~/.gemini/extensions/youtube-for-ai-agents`). To check the server or sign in:
+`${CLAUDE_PLUGIN_ROOT}` in the skills means this extension's folder (`~/.gemini/extensions/youtube`). To check the server or sign in:
 
 ```bash
-node ~/.gemini/extensions/youtube-for-ai-agents/dist/index.js doctor
-node ~/.gemini/extensions/youtube-for-ai-agents/dist/index.js login
+node ~/.gemini/extensions/youtube/dist/index.js doctor
+node ~/.gemini/extensions/youtube/dist/index.js login
 ```

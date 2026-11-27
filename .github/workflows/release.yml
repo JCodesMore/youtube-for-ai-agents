@@ -4,6 +4,7 @@ name: Release
 on:
   release:
     types: [published]
+  # To re-run after a failure: Actions > Release > Run workflow, and pick the tag under "Use workflow from".
   workflow_dispatch:
 
 permissions:
@@ -32,8 +33,11 @@ jobs:
       - name: Tag matches every manifest version
         run: |
           version="$(node -p "require('./package.json').version")"
-          tag="${{ github.event.release.tag_name }}"
-          if [ -n "$tag" ] && [ "$tag" != "v$version" ]; then
+          tag="${{ github.event.release.tag_name || (github.ref_type == 'tag' && github.ref_name || '') }}"
+          if [ -z "$tag" ]; then
+            echo "::error::Run this workflow from a release tag (Use workflow from: vX.Y.Z), not a branch."; exit 1
+          fi
+          if [ "$tag" != "v$version" ]; then
             echo "::error::Release tag $tag does not match package.json version $version"; exit 1
           fi
           npx vitest run -t "release hygiene"
@@ -69,5 +73,10 @@ jobs:
 
       - name: Publish to the MCP Registry
         run: |
+          set -o pipefail
           ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+          # Re-running a release that already reached the registry finds this version there; that is fine.
+          if ! ./mcp-publisher publish 2>&1 | tee publish.log; then
+            grep -qiE "already (exists|published)|duplicate" publish.log || exit 1
+            echo "This version is already in the MCP Registry."
+          fi
