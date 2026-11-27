@@ -44,7 +44,7 @@ export async function handleSearch(args: SearchArgs) {
   return {
     content: [{
       type: 'text' as const,
-      text: JSON.stringify({ results, mode, query: args.query }, null, 2),
+      text: JSON.stringify({ query: args.query, mode, results }),
     }],
   };
 }

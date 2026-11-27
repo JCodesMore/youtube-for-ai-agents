@@ -1,35 +1,88 @@
-import { Innertube } from 'youtubei.js';
+import { Innertube, Log } from 'youtubei.js';
 import { loadCookies } from './cookies.js';
 import { getConfig } from './user-config.js';
+import { parseChannelRef } from './ids.js';
+import { debug } from './log.js';
 
-let instance: Innertube | null = null;
+// youtubei.js prints parser warnings whenever YouTube adds a field it doesn't know yet.
+// They're harmless, and they'd flood the agent's MCP log.
+Log.setLevel(process.env.YOUTUBE_AI_AGENTS_DEBUG ? Log.Level.WARNING : Log.Level.NONE);
+
 export type SearchMode = 'personalized' | 'anonymous';
 
-let instanceMode: SearchMode = 'anonymous';
+let pending: Promise<{ yt: Innertube; mode: SearchMode }> | null = null;
 
-export async function getInstance(): Promise<{ yt: Innertube; mode: SearchMode }> {
-  if (instance) {
-    return { yt: instance, mode: instanceMode };
-  }
-
-  const cookieString = loadCookies();
-  instanceMode = cookieString !== null ? 'personalized' : 'anonymous';
-
+async function create(): Promise<{ yt: Innertube; mode: SearchMode }> {
   const config = getConfig();
-  instance = await Innertube.create({
+  const base = {
     lang: config.innertube.language,
     location: config.innertube.location,
     retrieve_player: config.innertube.retrievePlayer,
-    ...(cookieString ? { cookie: cookieString } : {}),
-  });
+  };
+  const cookie = loadCookies();
+  if (cookie) {
+    try {
+      return { yt: await Innertube.create({ ...base, cookie }), mode: 'personalized' };
+    } catch (e) {
+      // Expired or broken cookies shouldn't take the whole tool down.
+      debug(`signed-in session failed, continuing anonymously: ${(e as Error).message}`);
+    }
+  }
+  return { yt: await Innertube.create(base), mode: 'anonymous' };
+}
 
-  return { yt: instance, mode: instanceMode };
+/** One shared InnerTube session. Concurrent first calls wait on the same creation. */
+export function getInstance(): Promise<{ yt: Innertube; mode: SearchMode }> {
+  if (!pending) {
+    pending = create().catch((e) => {
+      pending = null;
+      throw e;
+    });
+  }
+  return pending;
 }
 
 export function resetInstance(): void {
-  instance = null;
-  instanceMode = 'anonymous';
+  pending = null;
 }
+
+
+// --- Lockup view (YouTube's newer card format, used for channel tabs and some search results) ---
+
+interface LockupFields {
+  id: string;
+  contentType: string;
+  title: string;
+  parts: string[];
+  channelName: string;
+  channelId: string;
+  badges: string[];
+}
+
+/** Read the common fields out of a LockupView card. Returns null for anything else. */
+export function readLockup(item: any): LockupFields | null {
+  if (item?.type !== 'LockupView') return null;
+  const rows: any[] = item.metadata?.metadata?.metadata_rows ?? [];
+  const partNodes: any[] = rows.flatMap((r) => r.metadata_parts ?? []);
+  const parts = partNodes.map((p) => p.text?.text ?? '').filter(Boolean);
+  const channelNode = partNodes.find((p) => p.text?.endpoint?.payload?.browseId?.startsWith?.('UC'));
+  const image = item.content_image ?? {};
+  const overlays: any[] = [...(image.overlays ?? []), ...(image.primary_thumbnail?.overlays ?? [])];
+  const badges = overlays.flatMap((o) => o.badges ?? []).map((b: any) => b.text).filter(Boolean);
+  return {
+    id: item.content_id ?? '',
+    contentType: item.content_type ?? '',
+    title: item.metadata?.title?.text ?? '',
+    parts,
+    channelName: channelNode?.text?.text ?? '',
+    channelId: channelNode?.text?.endpoint?.payload?.browseId ?? '',
+    badges,
+  };
+}
+
+const AGE = /ago|^streamed|^premiered/i;
+const DURATION = /^\d+(:\d{2}){1,2}$/;
+const VIEWS = /view|^[\d.,]+[KMB]?$/i;
 
 // --- Search ---
 
@@ -162,6 +215,33 @@ export async function search(
         thumbnail: ch.author?.best_thumbnail?.url ?? ch.author?.thumbnails?.[0]?.url ?? '',
         description: ch.description_snippet?.text ?? '',
       });
+    } else if (item.type === 'LockupView') {
+      const l = readLockup(item);
+      if (!l) continue;
+      if (l.contentType === 'PLAYLIST' || l.contentType === 'PODCAST') {
+        results.push({
+          type: 'playlist',
+          id: l.id,
+          title: l.title,
+          channelName: l.channelName,
+          channelId: l.channelId,
+          videoCount: l.badges.find((b) => /video|episode|lesson/i.test(b)) ?? '',
+          thumbnail: '',
+        });
+      } else if (l.contentType === 'VIDEO') {
+        results.push({
+          type: 'video',
+          id: l.id,
+          title: l.title,
+          channel: l.channelName,
+          channelId: l.channelId,
+          views: l.parts.find((p) => /view/i.test(p)) ?? '',
+          published: l.parts.find((p) => AGE.test(p)) ?? '',
+          duration: l.badges.find((b) => DURATION.test(b)) ?? '',
+          thumbnail: `https://i.ytimg.com/vi/${l.id}/hqdefault.jpg`,
+          snippets: [],
+        });
+      }
     } else if (item.type === 'Playlist') {
       const pl = item as any;
       results.push({
@@ -369,6 +449,17 @@ export async function getChannelVideos(
   while (videos.length < limit) {
     for (const video of currentTab.videos) {
       if (videos.length >= limit) break;
+      const l = readLockup(video);
+      if (l) {
+        videos.push({
+          id: l.id,
+          title: l.title,
+          views: l.parts.find((p) => VIEWS.test(p) && !AGE.test(p)) ?? '',
+          published: l.parts.find((p) => AGE.test(p)) ?? '',
+          duration: l.badges.find((b) => DURATION.test(b)) ?? '',
+        });
+        continue;
+      }
       videos.push({
         id: (video as any).video_id ?? (video as any).id ?? '',
         title: (video as any).title?.text ?? (video as any).title?.toString?.() ?? '',
@@ -468,37 +559,64 @@ export async function getPlaylist(
 // --- Helpers ---
 
 async function resolveChannelId(input: string): Promise<string> {
-  const trimmed = input.trim();
+  const ref = parseChannelRef(input);
+  if (ref.kind === 'id') return ref.id;
 
-  if (trimmed.startsWith('UC') && !trimmed.includes('/')) {
-    return trimmed;
-  }
-
-  // For /channel/UCxxx URLs, extract the ID directly
-  if (trimmed.startsWith('http')) {
-    try {
-      const match = new URL(trimmed).pathname.match(/^\/channel\/(UC[a-zA-Z0-9_-]+)/);
-      if (match) return match[1];
-    } catch { /* fall through to resolveURL */ }
-  }
-
-  // Use InnerTube to resolve @handles and other URL formats
   const { yt } = await getInstance();
-
-  let urlToResolve: string;
-  if (trimmed.startsWith('@')) {
-    urlToResolve = `https://www.youtube.com/${trimmed}`;
-  } else if (trimmed.startsWith('http')) {
-    urlToResolve = trimmed;
-  } else {
-    urlToResolve = `https://www.youtube.com/@${trimmed}`;
-  }
-
-  const endpoint = await yt.resolveURL(urlToResolve);
+  const endpoint = await yt.resolveURL(ref.url);
   const browseId = (endpoint as any)?.payload?.browseId;
   if (browseId && typeof browseId === 'string') {
     return browseId;
   }
 
   throw new Error(`Could not resolve "${input}" to a channel ID`);
+}
+
+// --- Comments ---
+
+export interface VideoComment {
+  author: string;
+  text: string;
+  likes: string;
+  published: string;
+  replies: number;
+  pinned?: boolean;
+  byCreator?: boolean;
+  heartedByCreator?: boolean;
+}
+
+export async function getComments(
+  videoId: string,
+  limit: number,
+  sort: 'top' | 'newest',
+): Promise<{ totalComments: string; comments: VideoComment[] }> {
+  const { yt } = await getInstance();
+  let page: any = await yt.getComments(videoId, sort === 'newest' ? 'NEWEST_FIRST' : 'TOP_COMMENTS');
+  const totalComments = page.header?.comments_count?.toString?.() ?? '';
+  const comments: VideoComment[] = [];
+
+  while (comments.length < limit) {
+    for (const thread of page.contents ?? []) {
+      if (comments.length >= limit) break;
+      const c = thread.comment;
+      if (!c) continue;
+      comments.push({
+        author: c.author?.name ?? '',
+        text: c.content?.toString?.() ?? '',
+        likes: c.like_count ?? '0',
+        published: c.published_time ?? '',
+        replies: Number(String(c.reply_count ?? '0').replace(/[^\d]/g, '')) || 0,
+        ...(c.is_pinned ? { pinned: true } : {}),
+        ...(c.author_is_channel_owner ? { byCreator: true } : {}),
+        ...(c.is_hearted ? { heartedByCreator: true } : {}),
+      });
+    }
+    if (comments.length >= limit || !page.has_continuation) break;
+    try {
+      page = await page.getContinuation();
+    } catch {
+      break;
+    }
+  }
+  return { totalComments, comments };
 }

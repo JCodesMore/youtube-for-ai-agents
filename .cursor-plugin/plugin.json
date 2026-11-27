@@ -1,7 +1,7 @@
 {
   "name": "youtube",
   "displayName": "YouTube for AI Agents",
-  "description": "YouTube tools — search, transcripts, video info, channel browsing, playlists",
+  "description": "Give Cursor YouTube: search, watch videos through their transcripts, read comments, see frames, browse channels and playlists, and download, clip and build highlight reels. No API key.",
   "version": "0.2.0",
   "author": {
     "name": "JCodesMore",
@@ -18,5 +18,6 @@
     "cursor"
   ],
   "skills": "./skills/",
-  "agents": "./agents/"
+  "agents": "./agents/",
+  "mcpServers": "./mcp.json"
 }
