@@ -3,11 +3,32 @@
  * or without tracking parameters) and turn it into the ID YouTube's APIs expect.
  */
 
+import { YouTubeToolError } from './errors.js';
+
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const PLAYLIST_ID = /^(PL|UU|LL|FL|OL|RD|UL|OLAK5uy_)[A-Za-z0-9_-]{8,}$/;
 const CHANNEL_ID = /^UC[A-Za-z0-9_-]{22}$/;
 
 const VIDEO_PATH_PREFIXES = ['shorts', 'live', 'embed', 'v', 'e'];
+const CHANNEL_PATH = /^(@|channel$|c$|user$)/;
+
+/** Pasted text often arrives as <url>, in quotes, or with the sentence's full stop attached. */
+function clean(input: string): string {
+  return input.trim().replace(/^[<"'(\[]+|[>"')\].,;:!?]+$/g, '').trim();
+}
+
+/**
+ * A YouTube Clip link (youtube.com/clip/…), cleaned up and with its scheme, or null for anything
+ * else. Only YouTube can say which video a clip comes from.
+ */
+export function clipLink(input: string): string | null {
+  const url = tryUrl(clean(input));
+  return url && url.pathname.split('/').filter(Boolean)[0] === 'clip' ? url.href : null;
+}
+
+export function isClipLink(input: string): boolean {
+  return clipLink(input) !== null;
+}
 
 function tryUrl(input: string): URL | null {
   const withScheme = /^[a-z]+:\/\//i.test(input) ? input : `https://${input}`;
@@ -20,7 +41,7 @@ function tryUrl(input: string): URL | null {
 }
 
 export function parseVideoId(input: string): string {
-  const trimmed = input.trim();
+  const trimmed = clean(input);
   if (VIDEO_ID.test(trimmed)) return trimmed;
 
   const url = tryUrl(trimmed);
@@ -33,6 +54,12 @@ export function parseVideoId(input: string): string {
     if (v && VIDEO_ID.test(v)) return v;
     const parts = url.pathname.split('/').filter(Boolean);
     if (parts.length >= 2 && VIDEO_PATH_PREFIXES.includes(parts[0]) && VIDEO_ID.test(parts[1])) return parts[1];
+    if (parts[0] === 'playlist' || (url.searchParams.get('list') && !parts.length)) {
+      throw new YouTubeToolError('invalid_input', `"${input}" is a playlist link, not a video.`, 'Use youtube_get_playlist to list its videos, then pass one video\'s link or ID.');
+    }
+    if (parts[0] && CHANNEL_PATH.test(parts[0])) {
+      throw new YouTubeToolError('invalid_input', `"${input}" is a channel link, not a video.`, 'Use youtube_get_channel_videos to list its videos, then pass one video\'s link or ID.');
+    }
   }
 
   throw new Error(`"${input}" doesn't look like a YouTube video. Pass a video URL or its 11-character ID.`);
@@ -40,7 +67,7 @@ export function parseVideoId(input: string): string {
 
 /** Read a start time from a URL (t=90, t=1m30s, start=90), if one was shared. */
 export function parseStartTime(input: string): number | undefined {
-  const url = tryUrl(input.trim());
+  const url = tryUrl(clean(input));
   const raw = url?.searchParams.get('t') ?? url?.searchParams.get('start');
   if (!raw) return undefined;
   if (/^\d+$/.test(raw)) return Number(raw);
@@ -50,7 +77,7 @@ export function parseStartTime(input: string): number | undefined {
 }
 
 export function parsePlaylistId(input: string): string {
-  const trimmed = input.trim();
+  const trimmed = clean(input);
   if (PLAYLIST_ID.test(trimmed)) return trimmed;
   const url = tryUrl(trimmed);
   const list = url?.searchParams.get('list');
@@ -60,13 +87,25 @@ export function parsePlaylistId(input: string): string {
   throw new Error(`"${input}" doesn't look like a YouTube playlist. Pass a playlist URL or its ID.`);
 }
 
+/**
+ * The video a Mix (a playlist ID starting "RD", generated per viewer) grows from: the link's
+ * v= video, or the 11 characters after "RD". Undefined for anything else.
+ */
+export function mixSeedVideo(input: string, playlistId: string): string | undefined {
+  if (!playlistId.startsWith('RD')) return undefined;
+  const v = tryUrl(clean(input))?.searchParams.get('v');
+  if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+  const seed = playlistId.slice(2);
+  return /^[A-Za-z0-9_-]{11}$/.test(seed) ? seed : undefined;
+}
+
 export type ChannelRef =
   | { kind: 'id'; id: string }
   | { kind: 'url'; url: string };
 
 /** Normalise a channel reference: UC… ID, @handle, bare handle, or any channel URL. */
 export function parseChannelRef(input: string): ChannelRef {
-  const trimmed = input.trim();
+  const trimmed = clean(input);
   if (CHANNEL_ID.test(trimmed)) return { kind: 'id', id: trimmed };
   if (trimmed.startsWith('@')) return { kind: 'url', url: `https://www.youtube.com/${trimmed}` };
 

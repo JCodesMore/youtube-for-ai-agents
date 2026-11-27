@@ -1,14 +1,14 @@
 import { z } from 'zod';
 import { createClips } from '../lib/download.js';
-import { parseVideoId } from '../lib/ids.js';
+import { resolveVideoId } from '../lib/innertube.js';
 import { getConfig } from '../lib/user-config.js';
 import type { DownloadQuality } from '../config.js';
 
 export const clipInputSchema = {
   videoId: z.string().describe('YouTube video URL (any form: watch, youtu.be, Shorts, live) or 11-character video ID'),
   clips: z.array(z.object({
-    startTime: z.string().describe('Start timestamp — seconds ("90"), MM:SS ("1:30"), or HH:MM:SS ("1:30:00")'),
-    endTime: z.string().describe('End timestamp — seconds ("225"), MM:SS ("3:45"), or HH:MM:SS ("1:30:00")'),
+    startTime: z.string().describe('Start timestamp — seconds ("90"), MM:SS ("1:30"), HH:MM:SS ("1:30:00") or YouTube style ("1m30s")'),
+    endTime: z.string().describe('End timestamp, same forms. An end past the video\'s end clips to the end.'),
     label: z.string().optional().describe('Label for output filename (e.g. "intro" produces "Title - intro.mp4")'),
   })).min(1).describe('One or more clip definitions with start/end timestamps'),
   outputDir: z.string().optional()
@@ -20,7 +20,7 @@ export const clipInputSchema = {
   force: z.boolean().optional()
     .describe('Bypass the duration guard for long videos'),
   highlightReel: z.boolean().optional()
-    .describe('Combine all clips into a single highlight-reel video (default: true). Set to false for individual clips only.'),
+    .describe('With 2+ clips, also join them into one highlight-reel video (default: true). Set to false unless a reel was asked for.'),
 };
 
 interface ClipArgs {
@@ -36,7 +36,7 @@ interface ClipArgs {
 export async function handleClip(args: ClipArgs) {
   const config = getConfig();
 
-  const result = await createClips(parseVideoId(args.videoId), args.clips, {
+  const result = await createClips(await resolveVideoId(args.videoId), args.clips, {
     outputDir: args.outputDir,
     quality: args.quality ?? config.download.defaultQuality,
     accurate: args.accurate,

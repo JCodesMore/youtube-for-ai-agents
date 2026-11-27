@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `youtube_clip` always returns `{ clips, highlightReel?, notes? }`, with each file's measured `duration` and `durationSeconds` in place of `clipDuration`. A single clip used to come back as a bare array.
+
+### Added
+- `youtube_get_channel_videos` lists a channel's Shorts or live streams with `tab: "shorts"` or `"live"`. Before, only the Videos tab was listed, so creators who post mostly Shorts looked inactive.
+- `youtube_get_channel_videos` and `youtube_get_playlist` page with `offset` and report `returned` and `hasMore`, so long playlists and channels can be read to the end.
+- `youtube_get_playlist` reads Mixes (`list=RD…` links), and gives each video's views and age where YouTube shows them.
+- `youtube_get_comments` reads into threads with `replies`.
+- Search results flag streams that are live right now with `live: true`.
+
+### Fixed
+- Search results have their channel and view count again. YouTube serves some searches in a newer card format, which came back without them and sometimes put description text in `views`.
+- Channel search returns subscriber counts in the right field. They had swapped with the handle.
+- `sortBy: "date"` returns results newest first.
+- Sorting channel videos by `popular` or `oldest` works. Both silently returned the newest videos.
+- A mistyped handle, playlist or video ID gets a `not_found` error that says so, instead of "the video may have been removed" or "try again". Comments that are turned off get `comments_disabled`.
+- Playlist entries name their channel when YouTube leaves it out, and an album names its artist.
+- Styled captions (outlined text, common on big channels) come back once per line, without the doubled lines and zero-width characters.
+- `youtube_get_video_info` flags `ageRestricted` and `paywalled` videos, and no longer shows a "details withheld" note on videos with nothing missing, or a "NaN" view count on paid films.
+- Transcripts: a live stream gets a clear "no transcript until it ends" error, and paid or members-only videos get a `paywalled` error. A `maxSegments` cut says the transcript continues. `duration` is the video's length rather than the last caption's end, and every other available language is listed.
+- `youtube_get_frames` skips times past the end of the video and says which, instead of failing the whole call.
+- Highlight reels from `youtube_clip` stay in sync. Fast-cut reels played each clip after the first about a second ahead of its picture.
+- `youtube_download` saves into a folder when `outputPath` is one, instead of a file named after the folder in its parent. M4A and Opus audio is saved as YouTube serves it, about half the size and several times faster than before. Audio-only downloads warn only past 3 hours. Video downloads report the `resolution` actually saved.
+- Clip mistakes (start after end, times past the video, missing reel files) return `invalid_input` with a hint instead of "try again". An end past the video's end clips to the end. YouTube-style times like `1m02s` work.
+- Clips and reels report their measured duration, so a reel's length can be checked. `youtube_highlight_reel` picks its frame from the clips (vertical for Shorts) instead of always 1280×720.
+- Links wrapped in `<…>` or brackets, or with trailing punctuation, are accepted. Clip links resolve to their video. A playlist or channel link given to a video tool names the tool to use instead.
+
 ## [0.3.3] - 2026-11-27
 
 ### Fixed

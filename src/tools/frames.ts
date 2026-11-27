@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { readFileSync, rmSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { extractFrames, parseTimestamp } from '../lib/download.js';
-import { parseVideoId } from '../lib/ids.js';
+import { getDurationSeconds, resolveVideoId } from '../lib/innertube.js';
 import { clock } from './transcript.js';
+import { YouTubeToolError } from '../lib/errors.js';
 
 const MAX_FRAMES = 10;
 
@@ -18,12 +19,28 @@ export const framesInputSchema = {
 };
 
 export async function handleFrames(args: { videoId: string; times: Array<string | number>; quality?: string; outputDir?: string }) {
-  const videoId = parseVideoId(args.videoId);
-  const seconds = args.times.map((t) => (typeof t === 'number' ? t : parseTimestamp(t)));
+  const videoId = await resolveVideoId(args.videoId);
+  const asked = args.times.map((t) => ({ label: String(t), seconds: typeof t === 'number' ? t : String(t).trim().startsWith('-') ? -1 : parseTimestamp(t) }));
+  // Check times against the video before downloading anything, so a slip ("45:00" on a 40-minute
+  // talk) costs one frame, not the whole call.
+  const length = await getDurationSeconds(videoId).catch(() => 0);
+  const skipped: string[] = [];
+  const seconds: number[] = [];
+  for (const t of asked) {
+    if (!(t.seconds >= 0)) skipped.push(`${t.label} (negative)`);
+    else if (length && t.seconds >= length) skipped.push(`${t.label} (past the end; the video is ${clock(length)} long)`);
+    else seconds.push(t.seconds);
+  }
+  if (!seconds.length) {
+    throw new YouTubeToolError('invalid_input', `No requested time is inside this video: ${skipped.join(', ')}.`, `Pick times between 0:00 and ${length ? clock(length) : "the video's end"}, from transcript timestamps or chapter times.`);
+  }
   const height = Number((args.quality ?? '720p').replace('p', ''));
   const frames = await extractFrames(videoId, seconds, { height, outputDir: args.outputDir });
+  const missed = seconds.filter((s) => !frames.some((f) => f.time === s)).map((s) => clock(s));
 
   const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [];
+  if (skipped.length) content.push({ type: 'text', text: `Skipped: ${skipped.join(', ')}.` });
+  if (missed.length) content.push({ type: 'text', text: `Couldn't grab the frame at ${missed.join(', ')}. Try a nearby moment.` });
   for (const f of frames) {
     content.push({ type: 'text', text: `Frame at ${clock(f.time)} (https://youtu.be/${videoId}?t=${Math.floor(f.time)})${args.outputDir ? `, saved to ${f.filePath}` : ''}` });
     content.push({ type: 'image', data: readFileSync(f.filePath).toString('base64'), mimeType: 'image/jpeg' });

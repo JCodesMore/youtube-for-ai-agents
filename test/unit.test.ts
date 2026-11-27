@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseChannelRef, parsePlaylistId, parseStartTime, parseVideoId } from '../src/lib/ids.js';
-import { chooseTrack, decodeEntities, originalAudioLanguage, parseJson3, parseTranscriptPanel, sameLanguage, transcriptPanelParams } from '../src/lib/transcript.js';
+import { clipLink, isClipLink, mixSeedVideo, parseChannelRef, parsePlaylistId, parseStartTime, parseVideoId } from '../src/lib/ids.js';
+import { ageSeconds, lockupViews, readLockup } from '../src/lib/innertube.js';
+import { chooseTrack, decodeEntities, originalAudioLanguage, tidyCaption, dropRollover, parseJson3, parseTranscriptPanel, sameLanguage, transcriptPanelParams } from '../src/lib/transcript.js';
 import { classify } from '../src/lib/errors.js';
 import { formatSort, parseTimestamp, sanitizeFilename } from '../src/lib/download.js';
 import { clock, estimateTokens } from '../src/tools/transcript.js';
@@ -22,10 +23,25 @@ describe('parseVideoId accepts whatever people paste', () => {
     `https://www.youtube-nocookie.com/embed/${id}`,
     `https://music.youtube.com/watch?v=${id}`,
     `  ${id}  `,
+    `<https://youtube.com/watch?v=${id}>`,
+    `https://youtu.be/${id}.`,
+    `(https://www.youtube.com/watch?v=${id})`,
   ])('%s', (input) => expect(parseVideoId(input)).toBe(id));
 
-  it.each(['hello world', 'https://vimeo.com/123456', 'https://www.youtube.com/@mkbhd', ''])('rejects %s', (input) => {
+  it.each(['hello world', 'https://vimeo.com/123456', ''])('rejects %s', (input) => {
     expect(() => parseVideoId(input)).toThrow(/doesn't look like a YouTube video/);
+  });
+
+  it('names the right tool for playlist and channel links', () => {
+    expect(() => parseVideoId('https://www.youtube.com/playlist?list=PLrAXtmErZgOdP_8GztsuKi9nrraNbKKp4')).toThrow(/playlist link/);
+    expect(() => parseVideoId('https://www.youtube.com/@mkbhd')).toThrow(/channel link/);
+    expect(() => parseVideoId('https://www.youtube.com/channel/UCAuUUnT6oDeKwE6v1NGQxug')).toThrow(/channel link/);
+  });
+
+  it('spots Clip links, which need YouTube to resolve', () => {
+    expect(isClipLink('https://www.youtube.com/clip/UgkxU2HSeGL_NvmDJ-nQJrlLwllwMDBdGZFs')).toBe(true);
+    expect(isClipLink(`https://youtu.be/${id}`)).toBe(false);
+    expect(clipLink('(youtube.com/clip/UgkxU2HSeGL_NvmDJ-nQJrlLwllwMDBdGZFs).')).toBe('https://youtube.com/clip/UgkxU2HSeGL_NvmDJ-nQJrlLwllwMDBdGZFs');
   });
 
   it('reads start times', () => {
@@ -49,6 +65,58 @@ describe('playlist and channel references', () => {
     expect(parseChannelRef('https://www.youtube.com/@TED/videos')).toEqual({ kind: 'url', url: 'https://www.youtube.com/@TED' });
     expect(parseChannelRef('TED')).toEqual({ kind: 'url', url: 'https://www.youtube.com/@TED' });
     expect(parseChannelRef('https://www.youtube.com/c/TEDtalksDirector')).toEqual({ kind: 'url', url: 'https://www.youtube.com/c/TEDtalksDirector' });
+  });
+  it('finds the seed video of a Mix', () => {
+    expect(mixSeedVideo('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ', 'RDdQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(mixSeedVideo('https://www.youtube.com/watch?v=yPYZpwSpKmA&list=RDMM', 'RDMM')).toBe('yPYZpwSpKmA');
+    expect(mixSeedVideo('RDdQw4w9WgXcQ', 'RDdQw4w9WgXcQ')).toBe('dQw4w9WgXcQ');
+    expect(mixSeedVideo('PLUl4u3cNGP61Oq3tWYp6V_F-5jb5L2iHb', 'PLUl4u3cNGP61Oq3tWYp6V_F-5jb5L2iHb')).toBeUndefined();
+  });
+});
+
+describe('search and channel cards', () => {
+  it('reads the view count, never a description that mentions "view"', () => {
+    expect(lockupViews(['58M', '4y ago'])).toBe('58M views');
+    expect(lockupViews(['1,304 views', '2w ago'])).toBe('1,304 views');
+    expect(lockupViews(['10K watching'])).toBe('10K watching');
+    expect(lockupViews(['Welcome to our in-depth review of the top keyboards', '13d ago'])).toBe('');
+  });
+  it('orders relative ages, unknown ones last', () => {
+    const ages = ['1y ago', '', '13 hours ago', 'Streamed 2y ago', '2w ago', '1mo ago', '1d ago'];
+    expect([...ages].sort((a, b) => (ageSeconds(a) === ageSeconds(b) ? 0 : ageSeconds(a) - ageSeconds(b))))
+      .toEqual(['13 hours ago', '1d ago', '2w ago', '1mo ago', '1y ago', 'Streamed 2y ago', '']);
+  });
+  it('finds the channel in a search card\'s avatar stack', () => {
+    const endpoint = { payload: { browseId: 'UCSJ4gkVC6NrvII8umztf0Ow' } };
+    const card = {
+      type: 'LockupView',
+      content_id: 'n61ULEU7CO0',
+      content_type: 'VIDEO',
+      metadata: {
+        title: { text: 'Best of lofi hip hop 2021' },
+        metadata: { metadata_rows: [
+          { metadata_parts: [{ avatar_stack: { text: { text: 'Lofi Girl', endpoint } } }, { text: { text: '58M' } }, { text: { text: '4y ago' } }] },
+          { metadata_parts: [{ text: { text: 'Listen on Spotify, Apple music and more' } }] },
+        ] },
+      },
+    };
+    const l = readLockup(card)!;
+    expect([l.channelName, l.channelId]).toEqual(['Lofi Girl', 'UCSJ4gkVC6NrvII8umztf0Ow']);
+    expect(l.rows).toEqual([['58M', '4y ago'], ['Listen on Spotify, Apple music and more']]);
+  });
+  it('never reads a numeric channel name as views', () => {
+    const card = {
+      type: 'LockupView',
+      content_id: 'abcdefghijk',
+      metadata: { metadata: { metadata_rows: [{ metadata_parts: [
+        { text: { text: '311', endpoint: { payload: { browseId: 'UC0123456789abcdefghijkl' } } } },
+        { text: { text: '2.1M' } },
+        { text: { text: '9y ago' } },
+      ] }] } },
+    };
+    const l = readLockup(card)!;
+    expect(l.channelName).toBe('311');
+    expect(lockupViews(l.parts)).toBe('2.1M views');
   });
 });
 
@@ -192,6 +260,9 @@ describe('errors are classified for agents', () => {
     ['This video may be inappropriate for some users. Sign in to confirm your age', 'age_restricted'],
     ['Transcript is disabled on this video', 'no_captions'],
     ['Video unavailable', 'unavailable'],
+    ['The playlist does not exist.', 'not_found'],
+    ['Request to https://www.youtube.com/youtubei/v1/navigation/resolve_url failed with status code 404', 'not_found'],
+    ['ERROR: [youtube] abc: HTTP Error 404: Not Found', 'unavailable'],
     ['fetch failed', 'network'],
     ['getaddrinfo ENOTFOUND www.youtube.com', 'network'],
     ['something odd', 'unknown'],
@@ -218,6 +289,29 @@ describe('media helpers', () => {
     expect(clock(5)).toBe('0:05');
     expect(clock(754.9)).toBe('12:34');
     expect(clock(3723)).toBe('1:02:03');
+  });
+});
+
+describe('tidyCaption', () => {
+  const zw = '\u200B';
+  it('drops the doubled lines and zero-width padding of styled captions', () => {
+    const raw = `${zw}${zw} ${zw}I recreated Hunger Games ${zw} ${zw}in REAL life!${zw} ${zw}I recreated Hunger Games ${zw} ${zw}in REAL life!${zw} WoOOoO!${zw} ${zw}WoOOoO!${zw}`;
+    expect(tidyCaption(raw)).toBe('I recreated Hunger Games in REAL life! WoOOoO!');
+  });
+  it('leaves ordinary captions alone, repeats included', () => {
+    expect(tidyCaption('no  no, not that')).toBe('no no, not that');
+    expect(tidyCaption('go go go')).toBe('go go go');
+  });
+  it('drops a line that rolls over into the next caption', () => {
+    expect(dropRollover('May the odds be in your favor. Everything we need is here!', 'Everything we need is here! OH! I got a weapon!'))
+      .toBe('OH! I got a weapon!');
+    expect(dropRollover('I said it was fine', 'it was fine by me')).toBe('it was fine by me');
+  });
+});
+
+describe('classify paid and members-only videos', () => {
+  it.each(['UNPLAYABLE: This video requires payment to watch', 'Join this channel to get access to members-only content like this video'])('%s', (msg) => {
+    expect(classify(new Error(msg))).toBe('paywalled');
   });
 });
 

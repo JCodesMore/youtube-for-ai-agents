@@ -7,9 +7,12 @@ export type FailureKind =
   | 'rate_limited'
   | 'bot_check'
   | 'unavailable'
+  | 'not_found'
   | 'private'
   | 'age_restricted'
+  | 'paywalled'
   | 'no_captions'
+  | 'comments_disabled'
   | 'network'
   | 'invalid_input'
   | 'unknown';
@@ -29,10 +32,15 @@ const HINTS: Record<FailureKind, string> = {
   bot_check:
     'YouTube asked to confirm this is not a bot, which happens on VPN, cloud and heavily used IPs. Signing in usually fixes it. Otherwise try again later from a home connection.',
   unavailable: 'The video may have been removed, or is blocked in this region.',
+  not_found: 'Nothing exists at that link or ID. Check it for typos; it may also have been deleted or made private.',
   private: 'The video is private, so only its owner can see it.',
-  age_restricted: 'The video is age-restricted. Sign in with an adult account (the "login" command) to read it.',
+  age_restricted:
+    'The video is age-restricted. Signing in with an adult account unlocks it: /youtube:setup in Claude Code, or `npx @jcodesmore/youtube-for-ai-agents login` in a terminal.',
+  paywalled:
+    "The video needs a purchase or a channel membership, so its transcript, frames and downloads aren't available. Its title, description and chapters still are (youtube_get_video_info).",
   no_captions:
     'This video has no captions or auto-generated transcript, so there is nothing to read. Use youtube_get_video_info for its description and chapters instead.',
+  comments_disabled: 'The creator turned comments off for this video (videos made for kids always have them off), so there are none to read.',
   network: 'Could not reach YouTube. Check the internet connection, proxy or firewall.',
   invalid_input: 'Check the URL or ID and try again.',
   unknown: 'Try again in a minute. If it keeps failing, run the "doctor" command and report the output at github.com/JCodesMore/youtube-for-ai-agents/issues.',
@@ -47,8 +55,12 @@ export function classify(error: unknown): FailureKind {
   if (/age.?restrict|inappropriate for some users|confirm your age/.test(msg)) return 'age_restricted';
   if (/not a bot|captcha|unusual traffic|sign in to confirm/.test(msg)) return 'bot_check';
   if (/private video|video is private/.test(msg)) return 'private';
+  if (/requires payment|members-only|join this channel|available to this channel's members|purchase/.test(msg)) return 'paywalled';
   if (name.includes('Disabled') || name.includes('NotAvailable') || /transcripts? (is |are )?disabled|no transcripts?|no captions|captions? (are )?not available/.test(msg)) return 'no_captions';
-  if (name.includes('Unavailable') || /unavailable|not available|removed|does not exist|404/.test(msg)) return 'unavailable';
+  // YouTube's own API answers 404 for a handle or ID that points at nothing. A 404 from a media
+  // server (yt-dlp's "HTTP Error 404") is a stream gone stale, so it stays below.
+  if (/does not exist|failed with status code 404/.test(msg)) return 'not_found';
+  if (name.includes('Unavailable') || /unavailable|not available|removed|\b404\b/.test(msg)) return 'unavailable';
   if (/enotfound|econnreset|econnrefused|etimedout|fetch failed|network|socket hang up|getaddrinfo/.test(msg)) return 'network';
   if (/doesn't look like a youtube|invalid/.test(msg)) return 'invalid_input';
   return 'unknown';
