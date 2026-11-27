@@ -1,0 +1,24 @@
+# Bumps change the bundle, so these PRs need `npm run build` and a dist/ commit before CI passes.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # @types/node follows the Node 22 floor; zod stays on 3 until the MCP SDK moves.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+      - dependency-name: zod
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]

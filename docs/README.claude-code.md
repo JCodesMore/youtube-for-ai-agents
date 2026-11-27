@@ -1,65 +1,52 @@
 # YouTube for Claude Code
 
-## Quick Install
+Needs [Node.js](https://nodejs.org/) 22 or newer (`node --version`). Claude Code's own installer doesn't include Node, so install it first if that command fails.
+
+## Install
+
+From a terminal:
 
 ```bash
+claude plugin install youtube --marketplace JCodesMore/jcodesmore-plugins
+```
+
+Or inside a Claude Code session:
+
+```text
 /plugin marketplace add JCodesMore/jcodesmore-plugins
 /plugin install youtube@jcodesmore-plugins
 ```
 
-This installs the full plugin: MCP tools, skills, and agents.
+Restart Claude Code. The Claude desktop app's Code tab shares these settings, so the terminal command installs it there too.
 
-## What You Get
+## What you get
 
-- **6 MCP tools**: `youtube_search`, `youtube_get_transcript`, `youtube_get_video_info`, `youtube_get_channel_info`, `youtube_get_channel_videos`, `youtube_get_playlist`
-- **Skills**: `/youtube` (research guide), `/youtube:setup` (configuration wizard)
-- **Agents**: `video-watcher` (watches videos and reports back with analysis)
+- The 11 `youtube_*` tools (search, transcripts, video details, frames, comments, channels, playlists, downloads, clips, reels)
+- The **youtube** skill, loaded when a task involves YouTube
+- The **video-watcher** agent, for watching several videos in parallel
+- **`/youtube:setup`**, which checks everything works and handles sign-in and settings
 
-## Verify
+## Check it works
 
-Start a new session and try:
+Ask *"Search YouTube for MCP tutorials"*. `/mcp` should list `youtube` as connected. For a full check from your computer (search, video details, a transcript, sign-in), run `/youtube:setup`.
 
-```
-Search YouTube for "MCP tutorial"
-```
+## Sign in and settings
 
-All `youtube_*` tools should be available.
+Optional. `/youtube:setup` walks you through both. Sign-in and settings live in `~/.youtube-for-ai-agents`.
 
-## Configuration
-
-Run the setup wizard to configure defaults:
-
-```
-/youtube:setup
-```
-
-Or use the CLI directly:
+## Update and remove
 
 ```bash
-node scripts/config.mjs --show
-node scripts/config.mjs --set search.defaultLimit 20
-node scripts/config.mjs --reset
+claude plugin update youtube@jcodesmore-plugins
+claude plugin uninstall youtube@jcodesmore-plugins
 ```
 
-Run these commands from the plugin root directory.
-
-## Authentication (optional)
-
-The plugin works out of the box in anonymous mode. For personalized results (recommendations, watch history):
-
-1. Run `/youtube:setup`
-2. Follow the guided walkthrough to extract cookies from Chrome
-
-Cookies are stored locally in the plugin data directory (`CLAUDE_PLUGIN_DATA`) and never transmitted anywhere. If `CLAUDE_PLUGIN_DATA` is not set, the script falls back to `.cookies.json` in the current directory.
-
-## Updating
+## Working on the plugin
 
 ```bash
-/plugin update youtube
-```
-
-## Uninstalling
-
-```bash
-/plugin uninstall youtube
+git clone https://github.com/JCodesMore/youtube-for-ai-agents.git
+cd youtube-for-ai-agents
+npm install
+npm run build
+claude --plugin-dir .
 ```

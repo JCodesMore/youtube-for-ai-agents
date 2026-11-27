@@ -14,3 +14,4 @@ test-output/
 *.mp4
 *.m4a
 coverage/
+package-lock.json

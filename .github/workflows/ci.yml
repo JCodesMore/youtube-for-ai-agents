@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      # No lockfile on purpose: Claude Code npm-installs any plugin that ships one.
+      - run: npm install --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Committed dist/ matches the source
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: node scripts/check-dist.mjs
+      - name: Server starts and lists its tools
+        run: node test/smoke.mjs --offline
+
+  live:
+    name: Live YouTube smoke test
+    # YouTube often rate-limits datacenter IPs, so this reports but never blocks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - run: node test/smoke.mjs

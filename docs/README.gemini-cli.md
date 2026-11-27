@@ -1,16 +1,20 @@
 # YouTube for Gemini CLI
 
-## Quick Install
+Needs [Node.js](https://nodejs.org/) 22 or newer (`node --version`).
+
+## Install
 
 ```bash
 gemini extensions install https://github.com/JCodesMore/youtube-for-ai-agents
 ```
 
-This installs the MCP server and context files automatically.
+This adds the tools and loads the YouTube guide (`GEMINI.md`) into every session. Restart Gemini CLI, then `/mcp` should list `youtube`.
 
-## Manual MCP Config
+Gemini CLI has no subagents, so the video-watcher agent isn't available; Gemini watches videos itself.
 
-If you prefer not to use the extension system, add to `~/.gemini/settings.json`:
+## Just the tools
+
+To add only the server, put this in `~/.gemini/settings.json`:
 
 ```json
 {
@@ -23,50 +27,17 @@ If you prefer not to use the extension system, add to `~/.gemini/settings.json`:
 }
 ```
 
-> **Note:** The npx method requires the package to be published to npm.
-
-## What You Get
-
-- **6 MCP tools**: `youtube_search`, `youtube_get_transcript`, `youtube_get_video_info`, `youtube_get_channel_info`, `youtube_get_channel_videos`, `youtube_get_playlist`
-- **Context file**: Research guide and tool reference loaded automatically via `GEMINI.md`
-
-The `video-watcher` agent is not available on Gemini CLI. To watch a video, call `youtube_get_transcript` directly and analyze the result in the current session.
-
-## Verify
-
-Start a new session and try:
-
-```
-Search YouTube for "MCP tutorial"
-```
-
-The `youtube_search` tool should be available and return results.
-
-## Authentication (optional)
-
-The plugin works out of the box in anonymous mode. For personalized results (recommendations, watch history):
+## Check, sign in, settings
 
 ```bash
-git clone https://github.com/JCodesMore/youtube-for-ai-agents.git /tmp/youtube-for-ai-agents
-cd /tmp/youtube-for-ai-agents && npm install && node scripts/extract-cookies.mjs
+npx @jcodesmore/youtube-for-ai-agents doctor   # full check from this computer
+npx @jcodesmore/youtube-for-ai-agents login    # optional sign-in
+npx @jcodesmore/youtube-for-ai-agents config   # settings
 ```
 
-This launches Chrome, extracts YouTube cookies, and stores them locally in `.cookies.json`.
-
-## Updating
+## Update and remove
 
 ```bash
-gemini extensions install https://github.com/JCodesMore/youtube-for-ai-agents
-```
-
-To pin a specific version:
-
-```bash
-gemini extensions install https://github.com/JCodesMore/youtube-for-ai-agents --ref=v0.1.0
-```
-
-## Uninstalling
-
-```bash
+gemini extensions update youtube
 gemini extensions uninstall youtube
 ```

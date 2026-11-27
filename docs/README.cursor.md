@@ -1,8 +1,10 @@
 # YouTube for Cursor
 
-## Quick Install (MCP Tools)
+Needs [Node.js](https://nodejs.org/) 22 or newer (`node --version`).
 
-Add to your `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
+## Install
+
+Add the server to `~/.cursor/mcp.json` (every project) or `.cursor/mcp.json` (one project):
 
 ```json
 {
@@ -15,78 +17,28 @@ Add to your `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global):
 }
 ```
 
-Restart Cursor. All 6 YouTube MCP tools will be available in Agent mode.
+Restart Cursor, and check **Settings → MCP** shows `youtube` enabled. The tools are available in Agent mode.
 
-> **Note:** Requires the package to be published to npm. Until then, use the [Full Install](#full-install-with-skills--agents) below.
+## Full plugin (skills and agent)
 
-## What You Get (MCP only)
-
-- `youtube_search` — Search YouTube for videos, channels, or playlists
-- `youtube_get_transcript` — Get timestamped transcript text from a video
-- `youtube_get_video_info` — Get video metadata (title, description, tags, chapters)
-- `youtube_get_channel_info` — Get channel metadata (name, subscribers, description)
-- `youtube_get_channel_videos` — List a channel's uploads
-- `youtube_get_playlist` — Get playlist metadata and video list
-
-## Full Install (with Skills + Agents)
-
-Clone the repo into Cursor's local plugins directory for the full plugin experience (skills, agents, and MCP tools):
+Cursor also loads this repository as a plugin, which adds the YouTube skill and the video-watcher agent on top of the tools:
 
 ```bash
 git clone https://github.com/JCodesMore/youtube-for-ai-agents.git ~/.cursor/plugins/local/youtube-for-ai-agents
-cd ~/.cursor/plugins/local/youtube-for-ai-agents && npm install && npm run build
 ```
 
-**Windows (PowerShell):**
+On Windows (PowerShell):
 
 ```powershell
 git clone https://github.com/JCodesMore/youtube-for-ai-agents.git "$env:USERPROFILE\.cursor\plugins\local\youtube-for-ai-agents"
-cd "$env:USERPROFILE\.cursor\plugins\local\youtube-for-ai-agents"; npm install; npm run build
 ```
 
-Restart Cursor after installation.
+Restart Cursor. The plugin starts the server itself, so drop the `mcp.json` entry above if you added it. Update with `git pull` in that folder.
 
-## Verify
-
-Open Agent mode and try:
-
-```
-Search YouTube for "MCP tutorial"
-```
-
-The `youtube_search` tool should be available and return results.
-
-## Authentication (optional)
-
-The plugin works out of the box in anonymous mode. For personalized results, clone the repo and run the cookie extraction script:
+## Check, sign in, settings
 
 ```bash
-cd ~/.cursor/plugins/local/youtube-for-ai-agents
-node scripts/extract-cookies.mjs
-```
-
-## Updating
-
-**MCP only:** npx fetches the latest version automatically on each restart.
-
-**Full install:**
-
-```bash
-cd ~/.cursor/plugins/local/youtube-for-ai-agents && git pull && npm run build
-```
-
-## Uninstalling
-
-**MCP only:** Remove the `youtube` entry from `.cursor/mcp.json`.
-
-**Full install:**
-
-```bash
-rm -rf ~/.cursor/plugins/local/youtube-for-ai-agents
-```
-
-**Windows (PowerShell):**
-
-```powershell
-Remove-Item -Recurse -Force "$env:USERPROFILE\.cursor\plugins\local\youtube-for-ai-agents"
+npx @jcodesmore/youtube-for-ai-agents doctor   # full check from this computer
+npx @jcodesmore/youtube-for-ai-agents login    # optional sign-in
+npx @jcodesmore/youtube-for-ai-agents config   # settings
 ```

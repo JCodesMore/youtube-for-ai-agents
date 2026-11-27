@@ -1,0 +1,73 @@
+name: Release
+
+# Runs when a GitHub Release is published (tag vX.Y.Z). See "Releasing" in AGENTS.md.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing and MCP Registry sign-in
+
+env:
+  MCP_PUBLISHER_VERSION: v1.8.16
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+
+      - name: Tag matches every manifest version
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="${{ github.event.release.tag_name }}"
+          if [ -n "$tag" ] && [ "$tag" != "v$version" ]; then
+            echo "::error::Release tag $tag does not match package.json version $version"; exit 1
+          fi
+          npx vitest run -t "release hygiene"
+
+      - name: Publish to npm
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          if npm view "$name@$version" version >/dev/null 2>&1; then
+            echo "$name@$version is already on npm; skipping."
+          else
+            npm install -g npm@latest
+            npm publish --access public
+          fi
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Download and verify mcp-publisher
+        run: |
+          set -euo pipefail
+          archive="mcp-publisher_linux_amd64.tar.gz"
+          base_url="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}"
+          curl --fail --location --silent --show-error --output "$archive" "$base_url/$archive"
+          curl --fail --location --silent --show-error --output "$archive.sigstore.json" "$base_url/$archive.sigstore.json"
+          cosign verify-blob \
+            --bundle "$archive.sigstore.json" \
+            --certificate-identity "https://github.com/modelcontextprotocol/registry/.github/workflows/release.yml@refs/tags/${MCP_PUBLISHER_VERSION}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "$archive"
+          tar xzf "$archive" mcp-publisher
+          rm -f "$archive" "$archive.sigstore.json"
+
+      - name: Publish to the MCP Registry
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

@@ -1,17 +1,21 @@
-## What does this change?
+## Summary
 
-Brief description of the changes.
+<!-- What does this PR change, and why? -->
 
-## Why?
+## Related issue
 
-What problem does this solve or what feature does this add?
+<!-- e.g. Closes #123 -->
 
-## How was it tested?
+## Type of change
 
-Describe how you verified the changes work.
+- [ ] Bug fix
+- [ ] New feature or tool
+- [ ] Documentation
+- [ ] Refactoring
+- [ ] Breaking change
 
 ## Checklist
 
-- [ ] `npm run build` compiles without errors
-- [ ] Tested manually with `claude --plugin-dir .`
-- [ ] Updated README or CHANGELOG if needed
+- [ ] `npm run check` passes (typecheck, tests, build, and `dist/` committed)
+- [ ] Tried it in an agent (for example `claude --plugin-dir .`)
+- [ ] Added a line under `## [Unreleased]` in `CHANGELOG.md` for anything users will notice
