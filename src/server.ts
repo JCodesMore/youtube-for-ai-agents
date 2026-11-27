@@ -108,7 +108,7 @@ export function createServer(): McpServer {
 
   server.registerTool('youtube_clip', {
     title: 'Cut clips',
-    description: 'Cut one or more clips from a YouTube video by timestamp. Only the requested ranges are downloaded, so clipping a long video is fast. Each clip needs startTime and endTime (seconds, MM:SS, HH:MM:SS or 1m30s) and an optional label for the file name. Keep clips tight: one moment each, usually 5-30 seconds. With 2+ clips it also joins them into a highlight reel (pass highlightReel: false if no reel was asked for). Set accurate: true for highlight reels or whenever cuts must land exactly (it re-encodes around the cut points, a little slower); without it, cuts snap to the nearest keyframe and can drift a second or two.',
+    description: 'Cut one or more clips from a YouTube video by timestamp. Only the requested ranges are downloaded, so clipping a long video is fast. Each clip needs startTime and endTime (seconds, MM:SS, HH:MM:SS or 1m30s) and an optional label for the file name. Keep clips tight: one moment each, usually 5-30 seconds. Pass highlightReel: true to also join 2+ clips into one highlight reel. Set accurate: true for highlight reels or whenever cuts must land exactly (it re-encodes around the cut points, a little slower); without it, cuts snap to the nearest keyframe and can drift a second or two.',
     inputSchema: clipInputSchema,
     annotations: WRITES_FILES,
   }, safe('youtube_clip', handleClip));

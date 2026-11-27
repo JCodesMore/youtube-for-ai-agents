@@ -102,7 +102,7 @@ Reorder clips, tweak timestamps, swap in different moments, remove weak clips. R
 2. Identify the 3-8 tightest, most impactful moments
 3. Run each candidate through the self-containment check
 4. Assemble the transcript preview, review for flow, adjust
-5. Call `youtube_clip` with `accurate: true` — with 2+ clips it also produces a highlight reel (`highlightReel` in the response)
+5. Call `youtube_clip` with `accurate: true` and `highlightReel: true`, which joins the clips into a reel (`highlightReel` in the response)
 6. Verify: each clip's `durationSeconds` is measured from the saved file. Compare it with the length you asked for and investigate anything more than a second off. Relay any `notes` (for example, an end time past the video's end was clipped to the end)
 7. Present the highlight reel as the primary deliverable
 
@@ -112,7 +112,7 @@ Reorder clips, tweak timestamps, swap in different moments, remove weak clips. R
 2. Identify the best moments across all videos
 3. Run each candidate through the self-containment check
 4. Assemble the transcript preview with clips from all sources interleaved — review for flow, adjust
-5. Call `youtube_clip` once per video with `accurate: true` and `highlightReel: false`
+5. Call `youtube_clip` once per video with `accurate: true`
 6. Verify: check each clip's measured `durationSeconds` against the length you asked for
 7. Call `youtube_highlight_reel` with clip file paths **in narrative order** — it re-encodes for clean cross-video joins and picks the frame from the clips: their own size when they all match, otherwise 16:9, or 9:16 when most clips are vertical (Shorts), up to 1080p. The response's `resolution` says which
 8. Present the combined highlight reel as the primary deliverable, with individual clips as supplementary

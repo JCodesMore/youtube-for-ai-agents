@@ -139,6 +139,7 @@ try {
         videoId: 'jNQXAC9IVRw',
         clips: [{ startTime: '0:01', endTime: '0:04', label: 'a' }, { startTime: '0:10', endTime: '0:14', label: 'b' }],
         outputDir: out,
+        highlightReel: true,
       }));
       if (!existsSync(res.highlightReel.filePath)) throw new Error('reel missing');
       return `${res.clips.length} clips + reel ${res.highlightReel.fileSize}`;

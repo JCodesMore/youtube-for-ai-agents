@@ -20,7 +20,7 @@ export const clipInputSchema = {
   force: z.boolean().optional()
     .describe('Bypass the duration guard for long videos'),
   highlightReel: z.boolean().optional()
-    .describe('With 2+ clips, also join them into one highlight-reel video (default: true). Set to false unless a reel was asked for.'),
+    .describe('With 2+ clips, also join them into one highlight-reel video (default: false). Set to true when a reel was asked for.'),
 };
 
 interface ClipArgs {

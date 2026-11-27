@@ -15,6 +15,7 @@ const SETTABLE: Record<string, { type: 'number'; min: number; max: number } | { 
   'playlist.defaultLimit': { type: 'number', min: 1, max: DEFAULTS.playlist.maxLimit },
   'download.defaultQuality': { type: 'enum', values: ['best', '144p', '240p', '360p', '480p', '720p', '1080p', '1440p', '2160p'] },
   'download.maxDurationMinutes': { type: 'number', min: 1, max: 600 },
+  'download.maxAudioDurationMinutes': { type: 'number', min: 1, max: 1440 },
   'innertube.language': { type: 'string' },
   'innertube.location': { type: 'string' },
   'network.proxy': { type: 'string' },

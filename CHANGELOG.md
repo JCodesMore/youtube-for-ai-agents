@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `youtube_clip` builds a highlight reel only when asked, with `highlightReel: true`. Before, any 2+ clips also produced an unrequested reel file.
+
+### Added
+- The audio-only download limit can be changed: `config set download.maxAudioDurationMinutes <minutes>` (default 180).
+
 ## [0.3.4] - 2026-11-27
 
 ### Changed
