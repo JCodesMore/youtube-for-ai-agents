@@ -15,3 +15,4 @@ test-output/
 *.m4a
 coverage/
 package-lock.json
+!.github/lock/package-lock.json
