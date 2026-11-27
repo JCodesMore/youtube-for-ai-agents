@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-27
+
+### Fixed
+- The server is listed in the MCP Registry, as `io.github.JCodesMore/youtube-for-ai-agents`. The registry refused the lowercase name 0.3.0 was published with.
+- npm publishes the package's commands without "auto-corrected" warnings.
+
 ## [0.3.0] - 2026-11-27
 
 ### Fixed

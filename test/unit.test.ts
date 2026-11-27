@@ -216,6 +216,15 @@ describe('release hygiene', () => {
     expect(server.packages[0].version).toBe(version);
     expect(server.name).toBe(read('package.json').mcpName);
   });
+  it('bin paths need no correction from npm publish (it warns about ./path)', () => {
+    for (const target of Object.values(read('package.json').bin as Record<string, string>)) {
+      expect(target).not.toMatch(/^\.\//);
+      expect(() => readFileSync(target)).not.toThrow();
+    }
+  });
+  it('MCP Registry name uses the GitHub account as spelled (the registry is case-sensitive)', () => {
+    expect(read('package.json').mcpName).toMatch(/^io\.github\.JCodesMore\//);
+  });
   it('has no lockfile in the plugin root (it would make Claude Code npm-install dev tools for every user)', () => {
     expect(() => readFileSync('.npmrc', 'utf8')).not.toThrow();
     expect(readFileSync('.npmrc', 'utf8')).toMatch(/package-lock=false/);
