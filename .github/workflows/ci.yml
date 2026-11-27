@@ -24,8 +24,8 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-      # No lockfile on purpose: Claude Code npm-installs any plugin that ships one.
-      - run: npm install --no-audit --no-fund
+      # The lockfile lives outside the plugin root: Claude Code npm-installs any plugin that ships one.
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
@@ -46,5 +46,5 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - run: npm install --no-audit --no-fund
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
       - run: node test/smoke.mjs

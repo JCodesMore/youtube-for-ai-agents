@@ -26,7 +26,7 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm install --no-audit --no-fund
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
       - run: npm run check
 
       - name: Tag matches every manifest version

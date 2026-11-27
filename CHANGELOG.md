@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Every tool accepts YouTube links as people paste them (watch, youtu.be, Shorts, live, embed, music, with timestamps and tracking parameters), not only bare IDs.
 - Sign-in and settings are saved in one place the server actually reads, `~/.youtube-for-ai-agents`, instead of differing between the setup wizard and the server.
 - Clips download only the requested parts of a video instead of the whole file.
+- Video details come back on VPN and cloud networks where YouTube withholds player data, with a note saying what's missing, instead of an empty result.
 - Channel video titles and playlist search results, which came back empty after a YouTube layout change.
 
 ### Added

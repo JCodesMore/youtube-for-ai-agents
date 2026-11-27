@@ -79,6 +79,8 @@ try {
     await check('transcript picks the spoken language (TED talk with 50+ tracks)', async () => {
       const text = await call('youtube_get_transcript', { videoId: 'Ks-_Mh1QhMc', maxSegments: 5 });
       const header = JSON.parse(text.split('\n')[0]);
+      // On cloud IPs YouTube withholds the caption list; the panel still answers, in the default track.
+      if (header.language === 'unknown') return 'caption list withheld on this network; default track used';
       if (!header.language.startsWith('en')) throw new Error(`got ${header.language}`);
       return `language ${header.language}`;
     });
@@ -88,6 +90,7 @@ try {
       // Translation needs YouTube's caption files; while they're rate-limited the original comes back with a note.
       if (header.language === 'fr') return text.split('\n')[1];
       if (header.translationNote) return `original (${header.language}) with a translation note`;
+      if (header.language === 'unknown') return 'caption list withheld on this network; default track used';
       throw new Error(`got ${header.language} and no translation note`);
     });
     await check('long transcript pages under the size cap', async () => {

@@ -20,7 +20,7 @@ An MCP server that gives AI agents YouTube: search, transcripts, video details, 
 ## Constraints that aren't obvious
 
 - **`dist/` is committed and self-contained.** Plugin installs are a `git clone` with no build step, so esbuild bundles every dependency into `dist/index.js`. Commit `dist/` with any `src/` change; CI fails if they drift.
-- **No lockfile, ever.** Claude Code runs `npm install` in any plugin whose root has `package.json` plus a lockfile, which would pull 130 MB of dev tools onto every user's machine. `.npmrc` sets `package-lock=false`; versions are pinned exactly in `package.json` instead.
+- **No lockfile in the root.** Claude Code runs `npm install` in any plugin whose root has `package.json` plus a lockfile, which would pull 130 MB of dev tools onto every user's machine. `.npmrc` sets `package-lock=false`. The lockfile CI builds from lives in `.github/lock/`, so the bundle is reproducible; after changing dependencies run `npm run lock`, rebuild and commit all three.
 - **stdout belongs to MCP.** Log with `src/lib/log.ts` (stderr, only with `YOUTUBE_AI_AGENTS_DEBUG=1`). A stray `console.log` in server code corrupts the protocol.
 - **Errors go through `toolError`** (`src/lib/errors.ts`), which returns JSON with `kind`, `retryable` and a `hint` the agent can relay. Give new failure modes a kind and a hint.
 - **User data lives in `~/.youtube-for-ai-agents`** (`YOUTUBE_AI_AGENTS_HOME` overrides): settings, sign-in, transcript cache, downloaded yt-dlp and ffmpeg. Never in the plugin folder, which updates replace.

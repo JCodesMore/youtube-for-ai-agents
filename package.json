@@ -66,7 +66,8 @@
     "test": "vitest run",
     "smoke": "node test/smoke.mjs",
     "check": "npm run typecheck && npm test && npm run build && node scripts/check-dist.mjs",
-    "prepublishOnly": "npm run check"
+    "prepublishOnly": "npm run check",
+    "lock": "node scripts/lock.mjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.2",

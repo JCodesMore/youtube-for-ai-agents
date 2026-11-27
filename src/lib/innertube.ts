@@ -280,6 +280,8 @@ export interface VideoInfo {
   isLive: boolean;
   isUpcoming: boolean;
   chapters: Array<{ title: string; timestamp: number }>;
+  /** Set when YouTube withheld player data from this network. */
+  limited?: string;
 }
 
 export async function getVideoInfo(videoId: string): Promise<VideoInfo> {
@@ -309,16 +311,30 @@ export async function getVideoInfo(videoId: string): Promise<VideoInfo> {
     // Chapters not available
   }
 
+  // On VPN and cloud IPs YouTube often withholds the player data (a bot check) but still sends
+  // the watch page's own details, so fill in from those and say what's missing.
+  const primary = (info as any).primary_info;
+  const secondary = (info as any).secondary_info;
+  const text = (v: any): string => (v ? String(v.text ?? v.toString?.() ?? '') : '');
+  const status = info.playability_status;
+  const title = info.basic_info.title || text(primary?.title);
+  if (!title) {
+    throw new Error(status?.reason ? `${status.status}: ${status.reason}` : `YouTube returned no details for ${videoId}.`);
+  }
+
   return {
     id: info.basic_info.id ?? videoId,
-    title: info.basic_info.title ?? '',
-    channel: info.basic_info.author ?? '',
-    channelId: info.basic_info.channel_id ?? '',
+    title,
+    ...(status && status.status !== 'OK'
+      ? { limited: `YouTube withheld some details from this network (${status.reason ?? status.status}), so duration, tags and keywords may be missing. Signing in usually fixes it.` }
+      : {}),
+    channel: info.basic_info.author || text(secondary?.owner?.author?.name ?? secondary?.owner?.author),
+    channelId: info.basic_info.channel_id || secondary?.owner?.author?.id || '',
     channelUrl: (info.basic_info as any).channel?.url ?? '',
     subscriberCount: (info as any).secondary_info?.owner?.subscriber_count?.text ?? '',
-    description: info.basic_info.short_description ?? '',
+    description: info.basic_info.short_description || text(secondary?.description),
     category: (info.basic_info as any).category ?? '',
-    views: info.basic_info.view_count?.toLocaleString() ?? '',
+    views: info.basic_info.view_count?.toLocaleString() || primary?.view_count?.original_view_count?.toLocaleString() || text(primary?.view_count?.view_count),
     likes: info.basic_info.like_count?.toLocaleString() ?? '',
     published: (info as any).primary_info?.published?.text ?? '',
     relativeDate: (info as any).primary_info?.relative_date?.text ?? '',

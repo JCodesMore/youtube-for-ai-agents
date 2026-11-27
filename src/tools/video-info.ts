@@ -12,7 +12,7 @@ type DetailLevel = 'brief' | 'standard' | 'full';
 
 const BRIEF_FIELDS: (keyof VideoInfo)[] = [
   'id', 'title', 'channel', 'channelId', 'views', 'likes',
-  'duration', 'published', 'relativeDate', 'category',
+  'duration', 'published', 'relativeDate', 'category', 'limited',
 ];
 
 const DESC_TRUNCATE_LENGTH = 200;
