@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".claude-plugin/icon.png" alt="" width="96" height="96" />
+
 # YouTube for AI Agents
 
 ### Your AI agent watches YouTube so you don't have to

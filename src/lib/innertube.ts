@@ -338,7 +338,7 @@ export async function getVideoInfo(videoId: string): Promise<VideoInfo> {
     likes: info.basic_info.like_count?.toLocaleString() ?? '',
     published: (info as any).primary_info?.published?.text ?? '',
     relativeDate: (info as any).primary_info?.relative_date?.text ?? '',
-    duration: formatDuration(info.basic_info.duration ?? 0),
+    duration: info.basic_info.duration ? formatDuration(info.basic_info.duration) : '',
     thumbnail: info.basic_info.thumbnail?.[0]?.url ?? '',
     tags: info.basic_info.tags ?? [],
     isLive: info.basic_info.is_live ?? false,
