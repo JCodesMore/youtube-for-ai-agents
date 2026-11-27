@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { getVideoInfo, type VideoInfo } from '../lib/innertube.js';
-import { parseVideoId } from '../lib/ids.js';
+import { getVideoInfo, resolveVideoId, type VideoInfo } from '../lib/innertube.js';
 
 export const videoInfoInputSchema = {
   videoId: z.string().describe('YouTube video URL (any form: watch, youtu.be, Shorts, live) or 11-character video ID'),
@@ -12,7 +11,7 @@ type DetailLevel = 'brief' | 'standard' | 'full';
 
 const BRIEF_FIELDS: (keyof VideoInfo)[] = [
   'id', 'title', 'channel', 'channelId', 'views', 'likes',
-  'duration', 'published', 'relativeDate', 'category', 'limited',
+  'duration', 'published', 'relativeDate', 'category', 'limited', 'ageRestricted', 'paywalled',
 ];
 
 const DESC_TRUNCATE_LENGTH = 200;
@@ -39,7 +38,7 @@ function shapeResponse(info: VideoInfo, detail: DetailLevel): Partial<VideoInfo>
 }
 
 export async function handleVideoInfo(args: { videoId: string; detail?: DetailLevel }) {
-  const info = await getVideoInfo(parseVideoId(args.videoId));
+  const info = await getVideoInfo(await resolveVideoId(args.videoId));
   const detail = args.detail ?? 'standard';
   const shaped = shapeResponse(info, detail);
 

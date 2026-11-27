@@ -37,6 +37,8 @@ export interface TranscriptResult {
   channel?: string;
   /** Set when the requested translation was refused and the original language came back instead. */
   translationUnavailable?: string;
+  /** The video's own length in seconds, when known (captions often stop before the credits). */
+  videoDuration?: number;
   /** Which route produced the transcript, for diagnostics. */
   source: string;
 }
@@ -65,6 +67,8 @@ interface Track {
 
 interface VideoCaptions {
   tracks: Track[];
+  live?: boolean;
+  duration?: number;
   /** The language of the video's original audio, when YouTube says (auto-dubbed videos list many). */
   spoken?: string;
   title?: string;
@@ -157,7 +161,7 @@ export function parseJson3(body: string): TranscriptSegment[] {
  */
 function aboutTheVideo(error: unknown): boolean {
   const kind = classify(error);
-  if (kind === 'private' || kind === 'age_restricted') return true;
+  if (kind === 'private' || kind === 'age_restricted' || kind === 'paywalled') return true;
   return kind === 'unavailable' && /^ERROR\b/.test(error instanceof Error ? error.message : String(error));
 }
 
@@ -182,6 +186,8 @@ async function loadCaptions(videoId: string): Promise<VideoCaptions> {
           name: t.name?.text ?? t.name?.toString?.() ?? t.language_code,
         })),
         spoken: originalAudioLanguage(audio?.audio_tracks, audio?.default_audio_track_index),
+        live: info.basic_info.is_live ?? false,
+        duration: info.basic_info.duration ?? undefined,
         title: info.basic_info.title,
         channel: info.basic_info.author,
       };
@@ -494,8 +500,65 @@ const cache = new Map<string, { at: number; value: Promise<TranscriptResult> }>(
 
 const DAY_MS = 24 * 60 * 60_000;
 
-/** Bump when cached results would be wrong under the current code (v2: dubbed videos' languages). */
-const CACHE_VERSION = 2;
+const ZERO_WIDTH = /[\u200B-\u200D\u2060\uFEFF]/;
+const ZERO_WIDTH_ALL = /[\u200B-\u200D\u2060\uFEFF]/g;
+
+/**
+ * Styled captions (outlined or shadowed text, common on big creators' channels) arrive with each
+ * line twice, padded with zero-width characters. Strip those characters from every caption, and
+ * where they were present, drop a phrase repeated back to back.
+ */
+export function tidyCaption(text: string): string {
+  const styled = ZERO_WIDTH.test(text);
+  const plain = text.replace(ZERO_WIDTH_ALL, '').replace(/\s+/g, ' ').trim();
+  if (!styled) return plain;
+  const words = plain.split(' ');
+  const out: string[] = [];
+  let i = 0;
+  while (i < words.length) {
+    let size = Math.floor((words.length - i) / 2);
+    while (size > 0 && words.slice(i, i + size).join(' ') !== words.slice(i + size, i + 2 * size).join(' ')) size--;
+    if (size > 0) {
+      out.push(...words.slice(i, i + size));
+      i += 2 * size;
+    } else {
+      out.push(words[i]);
+      i += 1;
+    }
+  }
+  return out.join(' ');
+}
+
+/** Shortest phrase treated as a rolled-over line rather than a speaker repeating a word or two. */
+const MIN_ROLLOVER_WORDS = 4;
+
+/**
+ * Styled captions also roll: a line often reappears at the start of the next caption. Drop the
+ * longest start of `next` that repeats the end of `prev`.
+ */
+export function dropRollover(prev: string, next: string): string {
+  const before = prev.split(' ');
+  const words = next.split(' ');
+  for (let size = Math.min(before.length, words.length); size >= MIN_ROLLOVER_WORDS; size--) {
+    if (before.slice(-size).join(' ') === words.slice(0, size).join(' ')) return words.slice(size).join(' ');
+  }
+  return next;
+}
+
+function tidy(result: TranscriptResult): TranscriptResult {
+  const styled = result.segments.some((s) => ZERO_WIDTH.test(s.text));
+  const segments: TranscriptResult['segments'] = [];
+  for (const s of result.segments) {
+    let text = tidyCaption(s.text);
+    const prev = segments[segments.length - 1];
+    if (styled && prev) text = dropRollover(prev.text, text);
+    if (text) segments.push({ ...s, text });
+  }
+  return { ...result, segments };
+}
+
+/** Bump when cached results would be wrong under the current code (v3: tidied styled captions). */
+const CACHE_VERSION = 3;
 
 function diskPath(videoId: string, language?: string): string {
   return join(ensureDataDir('cache'), `transcript-v${CACHE_VERSION}-${videoId}-${(language || 'auto').replace(/[^\w-]/g, '')}.json`);
@@ -560,7 +623,7 @@ async function fetchTranscriptChain(videoId: string, language?: string): Promise
     failures.push({ route, kind, message });
     return kind;
   };
-  const final = (kind: FailureKind) => kind === 'private' || kind === 'unavailable' || kind === 'age_restricted';
+  const final = (kind: FailureKind) => kind === 'private' || kind === 'unavailable' || kind === 'age_restricted' || kind === 'paywalled';
 
   let captions: VideoCaptions | null = null;
   // When every player client calls the video unavailable, or lists no captions, only the
@@ -598,7 +661,8 @@ async function fetchTranscriptChain(videoId: string, language?: string): Promise
       continue;
     }
     try {
-      const result = await run();
+      const result = tidy(await run());
+      if (captions?.duration && !captions.live) result.videoDuration = captions.duration;
       debug(`transcript ${videoId} via ${route}: ${result.segments.length} segments`);
       const wanted = translateTo ?? (captions ? undefined : requested);
       if (wanted && result.language !== 'unknown' && !result.translatedFrom && baseLang(result.language) !== baseLang(wanted)) result.translationUnavailable = wanted;
@@ -610,8 +674,15 @@ async function fetchTranscriptChain(videoId: string, language?: string): Promise
       if (kind === 'rate_limited' || kind === 'bot_check') coolingUntil[backend] = Date.now() + COOLDOWN_MS;
     }
   }
+  if (captions?.live) {
+    throw new YouTubeToolError('no_captions', `${videoId} is live right now, and YouTube has no transcript for it yet.`, 'YouTube publishes a live stream\'s transcript after it ends; auto-captions can take a few hours. Use youtube_get_frames to see what\'s on screen now, or check back later.');
+  }
   // Better the original language, said so, than an error.
-  if (original && track) return { ...original, translationUnavailable: requested ?? track.languageCode };
+  if (original && track) {
+    const result = tidy(original);
+    if (captions?.duration) result.videoDuration = captions.duration;
+    return { ...result, translationUnavailable: requested ?? track.languageCode };
+  }
   giveUp(videoId, failures);
 }
 
@@ -619,7 +690,7 @@ function giveUp(videoId: string, failures: Failure[]): never {
   const real = failures.filter((f) => f.message !== 'yt-dlp not installed');
   const kinds = new Set(real.map((f) => f.kind));
   const pick: FailureKind =
-    (['private', 'age_restricted', 'unavailable', 'rate_limited', 'bot_check', 'no_captions', 'network'] as FailureKind[]).find((k) => kinds.has(k)) ?? 'unknown';
+    (['private', 'age_restricted', 'paywalled', 'unavailable', 'not_found', 'rate_limited', 'bot_check', 'no_captions', 'network'] as FailureKind[]).find((k) => kinds.has(k)) ?? 'unknown';
   const detail = real.map((f) => `${f.route}: ${f.message}`).join(' | ');
   throw new YouTubeToolError(pick, `Could not get a transcript for ${videoId}. ${detail}`);
 }

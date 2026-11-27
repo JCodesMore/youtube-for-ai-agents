@@ -30,6 +30,7 @@ The re-encoding penalty is small for 5-15 second clips. The precision is always 
 
 ### Clip Length and Boundaries
 
+- **Read the transcript with `format: "segments"` when picking moments.** Each caption then carries its `offset` and `duration` in seconds, so you can see where a sentence ends. The default timestamped view gives start times only, and one caption can span 7 seconds. Use `startTime`/`endTime` to fetch just the stretch you're working on.
 - **Target: 5-10 seconds per clip.** Go up to 15s only when a complete thought genuinely requires it.
 - **Start when the speaker starts the key sentence.** Not mid-word, not on a breath, not on the tail of a prior sentence.
 - **End right after the point lands.** Cut before filler ("and, um, so yeah...").
@@ -101,8 +102,8 @@ Reorder clips, tweak timestamps, swap in different moments, remove weak clips. R
 2. Identify the 3-8 tightest, most impactful moments
 3. Run each candidate through the self-containment check
 4. Assemble the transcript preview, review for flow, adjust
-5. Call `youtube_clip` with `accurate: true` — it automatically produces a highlight reel alongside individual clips
-6. Verify: compare actual clip durations from the response to requested durations. Investigate any significant discrepancy
+5. Call `youtube_clip` with `accurate: true` — with 2+ clips it also produces a highlight reel (`highlightReel` in the response)
+6. Verify: each clip's `durationSeconds` is measured from the saved file. Compare it with the length you asked for and investigate anything more than a second off. Relay any `notes` (for example, an end time past the video's end was clipped to the end)
 7. Present the highlight reel as the primary deliverable
 
 ## Multi-Video Reel Workflow
@@ -112,6 +113,6 @@ Reorder clips, tweak timestamps, swap in different moments, remove weak clips. R
 3. Run each candidate through the self-containment check
 4. Assemble the transcript preview with clips from all sources interleaved — review for flow, adjust
 5. Call `youtube_clip` once per video with `accurate: true` and `highlightReel: false`
-6. Verify: check actual clip durations match expected
-7. Call `youtube_highlight_reel` with clip file paths **in narrative order** — it re-encodes automatically for clean cross-video joining
+6. Verify: check each clip's measured `durationSeconds` against the length you asked for
+7. Call `youtube_highlight_reel` with clip file paths **in narrative order** — it re-encodes for clean cross-video joins and picks the frame from the clips: their own size when they all match, otherwise 16:9, or 9:16 when most clips are vertical (Shorts), up to 1080p. The response's `resolution` says which
 8. Present the combined highlight reel as the primary deliverable, with individual clips as supplementary
