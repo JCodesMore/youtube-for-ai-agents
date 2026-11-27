@@ -1,13 +1,13 @@
 {
   "name": "@jcodesmore/youtube-for-ai-agents",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Give your AI agent YouTube: search, watch (transcripts with timestamps), channels, playlists, comments, frames, downloads, clips and highlight reels. No API key.",
-  "mcpName": "io.github.jcodesmore/youtube-for-ai-agents",
+  "mcpName": "io.github.JCodesMore/youtube-for-ai-agents",
   "type": "module",
   "main": ".opencode/plugins/youtube.js",
   "bin": {
-    "youtube-for-ai-agents": "./dist/index.js",
-    "youtube-mcp": "./dist/index.js"
+    "youtube-for-ai-agents": "dist/index.js",
+    "youtube-mcp": "dist/index.js"
   },
   "files": [
     "dist",

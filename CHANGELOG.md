@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-27
+
+### Fixed
+- `npx @jcodesmore/youtube-for-ai-agents` runs the server again. npm published 0.3.0 without its commands, so Codex, Cursor, other MCP clients and the `doctor`, `login` and `config` commands couldn't start it from npm.
+- The server is listed in the MCP Registry, as `io.github.JCodesMore/youtube-for-ai-agents`.
+
 ## [0.3.0] - 2026-11-27
 
 ### Fixed
