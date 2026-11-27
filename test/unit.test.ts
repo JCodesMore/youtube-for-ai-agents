@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parseChannelRef, parsePlaylistId, parseStartTime, parseVideoId } from '../src/lib/ids.js';
-import { chooseTrack, decodeEntities, parseJson3, parseTranscriptPanel, sameLanguage, transcriptPanelParams } from '../src/lib/transcript.js';
+import { chooseTrack, decodeEntities, originalAudioLanguage, parseJson3, parseTranscriptPanel, sameLanguage, transcriptPanelParams } from '../src/lib/transcript.js';
 import { classify } from '../src/lib/errors.js';
 import { formatSort, parseTimestamp, sanitizeFilename } from '../src/lib/download.js';
 import { clock, estimateTokens } from '../src/tools/transcript.js';
@@ -77,6 +77,22 @@ describe('chooseTrack picks the right caption track', () => {
     expect(chooseTrack([t('de'), t('en')])!.track.languageCode).toBe('en');
     expect(chooseTrack([t('ja')])!.track.languageCode).toBe('ja');
     expect(chooseTrack([])).toBeNull();
+  });
+  it('uses the original audio language on auto-dubbed videos, which list an auto track per dub', () => {
+    const dubbed = [t('bn', true), t('nl', true), t('en', true), t('fr', true)];
+    expect(chooseTrack(dubbed, undefined, 'en')!.track).toEqual(t('en', true));
+    expect(chooseTrack([...dubbed, t('en')], undefined, 'en')!.track).toEqual(t('en'));
+  });
+});
+
+describe('originalAudioLanguage', () => {
+  it('finds the original among dubbed audio tracks (type 4), wherever the default is', () => {
+    const tracks = [{ audio_track_id: 'bn.10' }, { audio_track_id: 'en-US.4' }, { audio_track_id: 'es-US.10' }];
+    expect(originalAudioLanguage(tracks, 2)).toBe('en');
+  });
+  it('falls back to the default audio track, and says nothing without audio tracks', () => {
+    expect(originalAudioLanguage([{ audio_track_id: 'de-DE.3' }, { audio_track_id: 'ja.3' }], 1)).toBe('ja');
+    expect(originalAudioLanguage(undefined)).toBeUndefined();
   });
 });
 
