@@ -9,7 +9,7 @@ Add the plugin to `opencode.json` (`~/.config/opencode/opencode.json` for every 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["youtube@git+https://github.com/JCodesMore/youtube-for-ai-agents.git"]
+  "plugin": ["@jcodesmore/youtube-for-ai-agents"]
 }
 ```
 
@@ -39,4 +39,4 @@ npx @jcodesmore/youtube-for-ai-agents config   # settings
 
 ## Update and remove
 
-Pin a release by adding `#v0.3.0` to the plugin URL. To remove, delete the `youtube` entries from `opencode.json`.
+Pin a release with `@jcodesmore/youtube-for-ai-agents@0.3.0`. To remove, delete the entry from `opencode.json`.
