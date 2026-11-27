@@ -1,7 +1,7 @@
 {
   "name": "youtube",
   "description": "Give Claude YouTube: search, watch videos through their transcripts, read comments, see frames, browse channels and playlists, and download, clip and build highlight reels. No API key.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "author": {
     "name": "JCodesMore",
     "url": "https://github.com/JCodesMore"

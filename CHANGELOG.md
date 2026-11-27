@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-11-27
+
 ### Fixed
 - `youtube_get_playlist` returns each video's ID, title and channel again. They came back empty after a YouTube layout change.
 - Upload dates are back in search results and channel video lists.
