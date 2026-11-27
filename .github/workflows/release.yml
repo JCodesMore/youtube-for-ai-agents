@@ -53,6 +53,19 @@ jobs:
             npm publish --access public
           fi
 
+      - name: Wait until npm serves this version
+        # The MCP Registry checks the npm package, and a new version can take a few minutes to appear.
+        run: |
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          for attempt in $(seq 1 60); do
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version is on npm."; exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$name@$version did not appear on npm within 10 minutes."; exit 1
+
       - name: Install cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
