@@ -1,32 +1,13 @@
-import { existsSync, mkdirSync, unlinkSync, statSync, writeFileSync } from 'fs';
-import { join, resolve, dirname } from 'path';
-import { tmpdir } from 'os';
-import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
-import { createRequire } from 'module';
-import { YtDlp, type VideoInfo as YtDlpVideoInfo } from 'ytdlp-nodejs';
-
-const require = createRequire(import.meta.url);
-const ffmpegPath: string | null = require('ffmpeg-static');
+import { existsSync, mkdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { requireBinary } from './binaries.js';
+import { runProcess } from './process.js';
+import { loadCookies } from './cookies.js';
 import { getConfig } from './user-config.js';
+import { proxyUrl } from './network.js';
 import type { DownloadQuality, DownloadType } from '../config.js';
-
-let ytdlpInstance: YtDlp | null = null;
-
-function getYtDlp(): YtDlp {
-  if (!ytdlpInstance) {
-    ytdlpInstance = new YtDlp({
-      ffmpegPath: ffmpegPath ?? undefined,
-    });
-  }
-  return ytdlpInstance;
-}
-
-function toYtDlpQuality(quality: DownloadQuality): string {
-  if (quality === 'best') return 'highest';
-  if (quality === 'bestefficiency') return '720p';
-  return quality;
-}
 
 export interface DownloadOptions {
   quality?: DownloadQuality;
@@ -73,40 +54,50 @@ export interface HighlightReelResult {
   clips: ClipResult[];
 }
 
-// --- Timestamp parsing ---
+const INFO_TIMEOUT_MS = 60_000;
+const DOWNLOAD_TIMEOUT_MS = 30 * 60_000;
+
+// --- Small helpers ---
 
 export function parseTimestamp(input: string): number {
-  const trimmed = input.trim();
-
-  if (/^\d+(\.\d+)?$/.test(trimmed)) {
-    return parseFloat(trimmed);
-  }
-
+  const trimmed = String(input).trim();
+  if (/^\d+(\.\d+)?$/.test(trimmed)) return parseFloat(trimmed);
   const parts = trimmed.split(':').map(Number);
-  if (parts.some(isNaN)) {
+  if (parts.some(isNaN) || parts.length < 2 || parts.length > 3) {
     throw new Error(`Invalid timestamp: "${input}". Use seconds (90), MM:SS (1:30), or HH:MM:SS (1:30:00)`);
   }
-
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-
-  throw new Error(`Invalid timestamp: "${input}". Use seconds (90), MM:SS (1:30), or HH:MM:SS (1:30:00)`);
+  return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + parts[1];
 }
 
 export function formatSeconds(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
   return `${m}m ${s}s`;
 }
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
   return name
-    .replace(/[<>:"/\\|?*]/g, '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '')
     .replace(/\s+/g, ' ')
     .trim()
-    .slice(0, 200);
+    .replace(/[. ]+$/, '')
+    .slice(0, 150) || 'video';
+}
+
+/**
+ * Make file names unique within one request ("intro", "intro (2)"), ignoring case because
+ * Windows and macOS file systems do.
+ */
+export function uniqueNames(names: string[]): string[] {
+  const taken = new Set<string>();
+  return names.map((name) => {
+    let candidate = name;
+    for (let n = 2; taken.has(candidate.toLowerCase()); n++) candidate = `${name} (${n})`;
+    taken.add(candidate.toLowerCase());
+    return candidate;
+  });
 }
 
 export function formatFileSize(bytes: number): string {
@@ -116,290 +107,314 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-// --- FFmpeg helpers ---
+function heightOf(quality: DownloadQuality): number | null {
+  const m = quality.match(/^(\d+)p$/);
+  return m ? Number(m[1]) : quality === 'bestefficiency' ? 720 : null;
+}
 
-function assertFfmpeg(): string {
-  if (!ffmpegPath) {
-    throw new Error('ffmpeg binary not found. Ensure ffmpeg-static is installed.');
+/** yt-dlp format sort: highest resolution within the limit, then H.264/AAC so the MP4 plays everywhere. */
+export function formatSort(quality: DownloadQuality): string {
+  const h = heightOf(quality);
+  return [h ? `res:${h}` : 'res', 'vcodec:h264', 'acodec:aac'].join(',');
+}
+
+/** Netscape cookie file for yt-dlp, written to a temp file and deleted after use. */
+function writeCookieFile(): string | null {
+  const cookie = loadCookies();
+  if (!cookie) return null;
+  const expiry = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
+  const lines = ['# Netscape HTTP Cookie File'];
+  for (const pair of cookie.split(';')) {
+    const idx = pair.indexOf('=');
+    if (idx <= 0) continue;
+    const name = pair.slice(0, idx).trim();
+    const value = pair.slice(idx + 1).trim();
+    lines.push(['.youtube.com', 'TRUE', '/', 'TRUE', String(expiry), name, value].join('\t'));
   }
-  return ffmpegPath;
+  const file = join(tmpdir(), `yt-cookies-${randomUUID().slice(0, 8)}.txt`);
+  writeFileSync(file, lines.join('\n') + '\n', { mode: 0o600 });
+  return file;
 }
 
-function runFfmpeg(args: string[]): Promise<void> {
-  const bin = assertFfmpeg();
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stderr = '';
-    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
-    proc.on('close', (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}: ${stderr.slice(-500)}`));
-    });
-    proc.on('error', reject);
-  });
+async function ytdlp(args: string[], timeoutMs: number): Promise<string> {
+  const bin = await requireBinary('yt-dlp');
+  const ffmpeg = await requireBinary('ffmpeg');
+  const cookieFile = writeCookieFile();
+  const base = [
+    '--no-playlist', '--no-warnings', '--no-progress',
+    // Use the Node running this server as yt-dlp's JavaScript runtime (needed for YouTube).
+    '--no-js-runtimes', '--js-runtimes', `node:${process.execPath}`,
+    '--ffmpeg-location', ffmpeg,
+  ];
+  if (cookieFile) base.push('--cookies', cookieFile);
+  const proxy = proxyUrl();
+  if (proxy) base.push('--proxy', proxy);
+  try {
+    const { stdout } = await runProcess(bin, [...base, ...args], { timeoutMs });
+    return stdout;
+  } finally {
+    if (cookieFile) try { unlinkSync(cookieFile); } catch { /* already gone */ }
+  }
 }
 
-export function getVideoDuration(filePath: string): Promise<number> {
-  const bin = assertFfmpeg();
-  return new Promise((resolve, reject) => {
-    const proc = spawn(bin, ['-i', filePath], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stderr = '';
-    proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString(); });
-    proc.on('close', () => {
-      const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
-      if (match) {
-        const hours = parseInt(match[1]);
-        const minutes = parseInt(match[2]);
-        const seconds = parseInt(match[3]);
-        const fraction = parseInt(match[4]) / 100;
-        resolve(hours * 3600 + minutes * 60 + seconds + fraction);
-      } else {
-        resolve(0);
-      }
-    });
-    proc.on('error', reject);
-  });
+interface YtDlpInfo { title?: string; duration?: number }
+
+async function getInfo(url: string): Promise<{ title: string; durationSeconds: number }> {
+  const out = await ytdlp(['-J', '--skip-download', url], INFO_TIMEOUT_MS);
+  const info = JSON.parse(out) as YtDlpInfo;
+  return { title: info.title ?? 'video', durationSeconds: info.duration ?? 0 };
 }
 
-export async function concatClips(
-  clipPaths: string[],
-  outputPath: string,
-  options?: { reencode?: boolean },
-): Promise<void> {
+function lastLine(stdout: string): string {
+  return stdout.trim().split(/\r?\n/).filter(Boolean).pop() ?? '';
+}
+
+function guard(title: string, durationSeconds: number, force: boolean | undefined, action: string): DurationWarning | null {
+  const maxMinutes = getConfig().download.maxDurationMinutes;
+  if (force || durationSeconds <= maxMinutes * 60) return null;
+  const duration = formatSeconds(durationSeconds);
+  return {
+    warning: `This video is ${duration} long (over the ${maxMinutes}-minute limit), so ${action} may take a while and use a lot of disk space. Re-run with force: true to go ahead.`,
+    confirmed: false,
+    title,
+    duration,
+    durationSeconds,
+  };
+}
+
+// --- FFmpeg ---
+
+async function runFfmpeg(args: string[], timeoutMs: number = DOWNLOAD_TIMEOUT_MS): Promise<string> {
+  const bin = await requireBinary('ffmpeg');
+  const { stderr } = await runProcess(bin, ['-hide_banner', ...args], { timeoutMs });
+  return stderr;
+}
+
+/** Duration and whether there is an audio stream, read from what `ffmpeg -i` prints. */
+export function parseMediaInfo(ffmpegOutput: string): { durationSeconds: number; hasAudio: boolean } {
+  const m = ffmpegOutput.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+  return {
+    durationSeconds: m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : 0,
+    hasAudio: /Stream #\d+:\d+.*: Audio:/.test(ffmpegOutput),
+  };
+}
+
+async function probeMedia(filePath: string): Promise<{ durationSeconds: number; hasAudio: boolean }> {
+  const bin = await requireBinary('ffmpeg');
+  // ffmpeg with no output exits non-zero but prints the stream details first.
+  const stderr = await runProcess(bin, ['-hide_banner', '-i', filePath], { timeoutMs: INFO_TIMEOUT_MS })
+    .then((r) => r.stderr)
+    .catch((e: Error) => e.message);
+  return parseMediaInfo(stderr);
+}
+
+export async function getVideoDuration(filePath: string): Promise<number> {
+  return (await probeMedia(filePath)).durationSeconds;
+}
+
+/** Fallback length for generated silence when a clip's duration can't be read; concat pads the rest. */
+const SILENCE_FALLBACK_SECONDS = 0.1;
+const REEL_AUDIO_FORMAT = 'aformat=sample_rates=48000:channel_layouts=stereo';
+
+export async function concatClips(clipPaths: string[], outputPath: string, options?: { reencode?: boolean }): Promise<void> {
   if (options?.reencode) {
-    // Use concat filter with re-encoding for multi-source clips.
-    // This normalizes timestamps, frame rates, and codecs across different videos.
-    const inputs = clipPaths.flatMap(p => ['-i', p]);
-    const filterParts = clipPaths.map((_, i) => `[${i}:v][${i}:a]`).join('');
-    const filterComplex = `${filterParts}concat=n=${clipPaths.length}:v=1:a=1[v][a]`;
-
+    // Different sources: normalise size, frame rate and codecs so the joins are clean.
+    const inputs = clipPaths.flatMap((p) => ['-i', p]);
+    const media = await Promise.all(clipPaths.map(probeMedia));
+    // A clip with no audio stream (video-only download) gets silence of the same length.
+    const audio = (i: number) => media[i].hasAudio
+      ? `[${i}:a]aresample=48000,${REEL_AUDIO_FORMAT}[a${i}]`
+      : `anullsrc=r=48000:cl=stereo,atrim=duration=${media[i].durationSeconds || SILENCE_FALLBACK_SECONDS},${REEL_AUDIO_FORMAT}[a${i}]`;
+    const scale = clipPaths
+      .map((_, i) => `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30[v${i}];${audio(i)}`)
+      .join(';');
+    const joined = clipPaths.map((_, i) => `[v${i}][a${i}]`).join('');
     await runFfmpeg([
       ...inputs,
-      '-filter_complex', filterComplex,
+      '-filter_complex', `${scale};${joined}concat=n=${clipPaths.length}:v=1:a=1[v][a]`,
       '-map', '[v]', '-map', '[a]',
-      '-c:v', 'libx264', '-crf', '18', '-preset', 'fast',
-      '-c:a', 'aac', '-b:a', '128k',
+      '-c:v', 'libx264', '-crf', '20', '-preset', 'fast',
+      '-c:a', 'aac', '-b:a', '160k',
       '-movflags', '+faststart', '-y', outputPath,
     ]);
-  } else {
-    // Use concat demuxer with stream copy — fast, but only safe for same-source clips.
-    const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
-    const listContent = clipPaths
-      .map(p => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`)
-      .join('\n');
-    writeFileSync(listFile, listContent);
-    try {
-      await runFfmpeg([
-        '-f', 'concat', '-safe', '0', '-i', listFile,
-        '-c', 'copy', '-fflags', '+genpts',
-        '-movflags', '+faststart', '-y', outputPath,
-      ]);
-    } finally {
-      try { unlinkSync(listFile); } catch {}
-    }
+    return;
+  }
+  // Same source and codec: join without re-encoding.
+  const listFile = join(tmpdir(), `yt-concat-${randomUUID().slice(0, 8)}.txt`);
+  writeFileSync(listFile, clipPaths.map((p) => `file '${p.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n'));
+  try {
+    await runFfmpeg(['-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', '-fflags', '+genpts', '-movflags', '+faststart', '-y', outputPath]);
+  } finally {
+    try { unlinkSync(listFile); } catch { /* already gone */ }
   }
 }
 
 // --- Download ---
 
-export async function downloadVideo(
-  videoId: string,
-  options: DownloadOptions = {},
-): Promise<DownloadResult | DurationWarning> {
+export async function downloadVideo(videoId: string, options: DownloadOptions = {}): Promise<DownloadResult | DurationWarning> {
   const config = getConfig();
   const quality = options.quality ?? config.download.defaultQuality;
   const type = options.type ?? config.download.defaultType;
-  const format = options.format ?? config.download.defaultFormat;
-
-  const ytdlp = getYtDlp();
   const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const info = await ytdlp.getInfoAsync(url) as YtDlpVideoInfo;
 
-  const title = info.title ?? 'video';
-  const durationSeconds = info.duration ?? 0;
-  const duration = formatSeconds(durationSeconds);
+  const { title, durationSeconds } = await getInfo(url);
+  const warning = guard(title, durationSeconds, options.force, 'downloading');
+  if (warning) return warning;
 
-  const maxMinutes = config.download.maxDurationMinutes;
-  if (!options.force && durationSeconds > maxMinutes * 60) {
-    return {
-      warning: `This video is ${duration} long (exceeds the ${maxMinutes}-minute limit). It may take a while to download. Re-run with force: true to proceed.`,
-      confirmed: false,
-      title,
-      duration,
-      durationSeconds,
-    };
-  }
+  const audioOnly = type === 'audio';
+  const format = audioOnly
+    ? (options.format && options.format !== 'mp4' ? options.format : 'm4a')
+    : (options.format ?? config.download.defaultFormat);
 
-  const safeName = sanitizeFilename(title);
-  const outputPath = options.outputPath ?? `${safeName}.${format}`;
-  const resolvedOutput = resolve(outputPath);
+  const target = resolve(options.outputPath ?? `${sanitizeFilename(title)}.${format}`);
+  const outDir = dirname(target);
+  if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
 
-  const outputDir = dirname(resolvedOutput);
-  if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
+  const args = audioOnly
+    ? ['-f', 'ba/b', '-x', '--audio-format', format]
+    : type === 'video'
+      ? ['-f', 'bv*/b', '-S', formatSort(quality), '--remux-video', format]
+      : ['-f', 'bv*+ba/b', '-S', formatSort(quality), '--merge-output-format', format];
 
-  if (type === 'audio') {
-    const audioFormat = format === 'mp4' ? 'm4a' : format;
-    await ytdlp.download(url)
-      .filter('audioonly')
-      .type(audioFormat as any)
-      .options({ output: resolvedOutput })
-      .run();
-  } else if (type === 'video') {
-    await ytdlp.download(url)
-      .filter('videoonly')
-      .quality(toYtDlpQuality(quality) as any)
-      .type(format as any)
-      .options({ output: resolvedOutput })
-      .run();
-  } else {
-    await ytdlp.download(url)
-      .filter('mergevideo')
-      .quality(toYtDlpQuality(quality) as any)
-      .type(format as any)
-      .options({ output: resolvedOutput })
-      .run();
-  }
+  // Let yt-dlp choose the extension, then report the path it actually wrote.
+  const template = target.replace(/\.[^.\\/]+$/, '') + '.%(ext)s';
+  const stdout = await ytdlp([...args, '-o', template, '--print', 'after_move:filepath', url], DOWNLOAD_TIMEOUT_MS);
+  const filePath = lastLine(stdout) || target;
 
-  const fileSize = formatFileSize(statSync(resolvedOutput).size);
-
-  return { filePath: resolvedOutput, title, duration, durationSeconds, fileSize, format };
+  return {
+    filePath,
+    title,
+    duration: formatSeconds(durationSeconds),
+    durationSeconds,
+    fileSize: formatFileSize(statSync(filePath).size),
+    format,
+  };
 }
 
-// --- Download to temp (for clip tool) ---
-
-export async function downloadToTemp(
-  videoId: string,
-  quality: DownloadQuality = 'best',
-  force: boolean = false,
-): Promise<{ tempPath: string; title: string; durationSeconds: number } | DurationWarning> {
-  const config = getConfig();
-  const ytdlp = getYtDlp();
-  const url = `https://www.youtube.com/watch?v=${videoId}`;
-  const info = await ytdlp.getInfoAsync(url) as YtDlpVideoInfo;
-
-  const title = info.title ?? 'video';
-  const durationSeconds = info.duration ?? 0;
-  const duration = formatSeconds(durationSeconds);
-
-  const maxMinutes = config.download.maxDurationMinutes;
-  if (!force && durationSeconds > maxMinutes * 60) {
-    return {
-      warning: `This video is ${duration} long (exceeds the ${maxMinutes}-minute limit). Downloading is required before clipping. Re-run with force: true to proceed.`,
-      confirmed: false,
-      title,
-      duration,
-      durationSeconds,
-    };
-  }
-
-  const tempMuxed = join(tmpdir(), `yt-${randomUUID().slice(0, 8)}-muxed.mp4`);
-
-  await ytdlp.download(url)
-    .filter('mergevideo')
-    .quality(toYtDlpQuality(quality) as any)
-    .type('mp4')
-    .options({ output: tempMuxed })
-    .run();
-
-  return { tempPath: tempMuxed, title, durationSeconds };
-}
-
-// --- Clip ---
-
-export async function clipVideo(
-  inputPath: string,
-  outputPath: string,
-  startSeconds: number,
-  endSeconds: number,
-  accurate: boolean = false,
-): Promise<void> {
-  const startStr = startSeconds.toString();
-  const endStr = endSeconds.toString();
-
-  const args = accurate
-    ? ['-i', inputPath, '-ss', startStr, '-to', endStr, '-avoid_negative_ts', 'make_zero', '-y', outputPath]
-    : ['-ss', startStr, '-to', endStr, '-i', inputPath, '-c', 'copy', '-avoid_negative_ts', 'make_zero', '-y', outputPath];
-
-  await runFfmpeg(args);
-}
+// --- Clips ---
 
 export async function createClips(
   videoId: string,
   clips: ClipDefinition[],
-  options: {
-    outputDir?: string;
-    quality?: DownloadQuality;
-    accurate?: boolean;
-    force?: boolean;
-    highlightReel?: boolean;
-  } = {},
+  options: { outputDir?: string; quality?: DownloadQuality; accurate?: boolean; force?: boolean; highlightReel?: boolean } = {},
 ): Promise<HighlightReelResult | ClipResult[] | DurationWarning> {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
   const outputDir = resolve(options.outputDir ?? '.');
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
 
-  const result = await downloadToTemp(videoId, options.quality, options.force);
-  if ('warning' in result) return result;
-
-  const { tempPath, title, durationSeconds } = result;
-  const safeName = sanitizeFilename(title);
-  const clipResults: ClipResult[] = [];
-
-  try {
-    for (let i = 0; i < clips.length; i++) {
-      const clip = clips[i];
-      const startSec = parseTimestamp(clip.startTime);
-      const endSec = parseTimestamp(clip.endTime);
-
-      if (startSec >= endSec) {
-        throw new Error(`Clip ${i + 1}: startTime (${clip.startTime}) must be before endTime (${clip.endTime})`);
-      }
-      if (endSec > durationSeconds) {
-        throw new Error(`Clip ${i + 1}: endTime (${clip.endTime}) exceeds video duration (${formatSeconds(durationSeconds)})`);
-      }
-
-      const label = clip.label ?? `clip${i + 1}`;
-      const outputFile = join(outputDir, `${safeName} - ${label}.mp4`);
-
-      await clipVideo(tempPath, outputFile, startSec, endSec, options.accurate ?? false);
-
-      const fileSize = formatFileSize(statSync(outputFile).size);
-      const clipDuration = formatSeconds(endSec - startSec);
-
-      clipResults.push({
-        filePath: outputFile,
-        label,
-        startTime: clip.startTime,
-        endTime: clip.endTime,
-        clipDuration,
-        fileSize,
-      });
+  const { title, durationSeconds } = await getInfo(url);
+  const parsed = clips.map((clip, i) => {
+    const start = parseTimestamp(clip.startTime);
+    const end = parseTimestamp(clip.endTime);
+    if (start >= end) throw new Error(`Clip ${i + 1}: startTime (${clip.startTime}) must be before endTime (${clip.endTime})`);
+    if (durationSeconds && end > durationSeconds + 1) {
+      throw new Error(`Clip ${i + 1}: endTime (${clip.endTime}) is past the end of the video (${formatSeconds(durationSeconds)})`);
     }
-  } finally {
-    try { unlinkSync(tempPath); } catch {}
+    return { ...clip, start, end, label: clip.label ?? `clip${i + 1}` };
+  });
+
+  const total = parsed.reduce((sum, c) => sum + (c.end - c.start), 0);
+  const warning = guard(title, total, options.force, 'clipping this much footage');
+  if (warning) return warning;
+
+  const quality = options.quality ?? getConfig().download.defaultQuality;
+  const safeName = sanitizeFilename(title);
+  const fileLabels = uniqueNames(parsed.map((c) => sanitizeFilename(c.label)));
+  const results: ClipResult[] = [];
+
+  for (const [i, clip] of parsed.entries()) {
+    const outputFile = join(outputDir, `${safeName} - ${fileLabels[i]}.mp4`);
+    const tmp = join(tmpdir(), `yt-clip-${randomUUID().slice(0, 8)}.%(ext)s`);
+    // Download only the requested range rather than the whole video.
+    const args = ['-f', 'bv*+ba/b', '-S', formatSort(quality), '--merge-output-format', 'mp4', '--download-sections', `*${clip.start}-${clip.end}`];
+    if (options.accurate) args.push('--force-keyframes-at-cuts');
+    const stdout = await ytdlp([...args, '-o', tmp, '--print', 'after_move:filepath', url], DOWNLOAD_TIMEOUT_MS);
+    const written = lastLine(stdout);
+    if (!written || !existsSync(written)) throw new Error(`Clip "${clip.label}" was not written`);
+    if (existsSync(outputFile)) unlinkSync(outputFile);
+    // Normalise timestamps so players start the clip at 0:00.
+    await runFfmpeg(['-i', written, '-c', 'copy', '-avoid_negative_ts', 'make_zero', '-movflags', '+faststart', '-y', outputFile]);
+    try { unlinkSync(written); } catch { /* already gone */ }
+
+    results.push({
+      filePath: outputFile,
+      label: clip.label,
+      startTime: clip.startTime,
+      endTime: clip.endTime,
+      clipDuration: formatSeconds(clip.end - clip.start),
+      fileSize: formatFileSize(statSync(outputFile).size),
+    });
   }
 
-  const shouldCreateReel = (options.highlightReel ?? true) && clipResults.length >= 2;
-
-  if (shouldCreateReel) {
+  if ((options.highlightReel ?? true) && results.length >= 2) {
     const reelPath = join(outputDir, `${safeName} - highlight-reel.mp4`);
-    await concatClips(clipResults.map(c => c.filePath), reelPath);
-
-    const reelSize = formatFileSize(statSync(reelPath).size);
-    const totalSeconds = clipResults.reduce((sum, c) => {
-      const start = parseTimestamp(c.startTime);
-      const end = parseTimestamp(c.endTime);
-      return sum + (end - start);
-    }, 0);
-
+    await concatClips(results.map((c) => c.filePath), reelPath);
     return {
-      highlightReel: {
-        filePath: reelPath,
-        duration: formatSeconds(totalSeconds),
-        fileSize: reelSize,
-      },
-      clips: clipResults,
+      highlightReel: { filePath: reelPath, duration: formatSeconds(total), fileSize: formatFileSize(statSync(reelPath).size) },
+      clips: results,
     };
   }
+  return results;
+}
 
-  return clipResults;
+// --- Frames ---
+
+export interface Frame {
+  time: number;
+  filePath: string;
+}
+
+const FRAME_TIMEOUT_MS = 60_000;
+
+/**
+ * Grab still frames at the given times. First tries seeking straight into the stream (fast,
+ * one yt-dlp call); if YouTube refuses direct access, downloads a two-second section per frame.
+ */
+export async function extractFrames(videoId: string, times: number[], options: { height?: number; outputDir?: string } = {}): Promise<Frame[]> {
+  const url = `https://www.youtube.com/watch?v=${videoId}`;
+  const height = options.height ?? 720;
+  const dir = options.outputDir ? resolve(options.outputDir) : join(tmpdir(), `yt-frames-${videoId}-${randomUUID().slice(0, 6)}`);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const select = `bv*[height<=${height}][vcodec^=avc1]/bv*[height<=${height}]/b[height<=${height}]/b`;
+  const frames: Frame[] = [];
+
+  // ffmpeg reading the stream itself must go through the same proxy as yt-dlp, or YouTube sees
+  // a different IP than the URL was issued to. ffmpeg only speaks plain http:// proxies; with any
+  // other kind, skip straight to the yt-dlp route, which honours it.
+  const proxy = proxyUrl();
+  const directOk = !proxy || /^http:\/\//i.test(proxy);
+  const proxyArgs = proxy && directOk ? ['-http_proxy', proxy] : [];
+
+  let stream: string | null = null;
+  if (directOk) {
+    try {
+      stream = lastLine(await ytdlp(['-f', select, '-g', url], INFO_TIMEOUT_MS)) || null;
+    } catch {
+      stream = null;
+    }
+  }
+
+  for (const [i, time] of times.entries()) {
+    const filePath = join(dir, `${videoId}-${i + 1}-at-${Math.floor(time)}s.jpg`);
+    let ok = false;
+    if (stream) {
+      try {
+        await runFfmpeg([...proxyArgs, '-ss', String(time), '-i', stream, '-frames:v', '1', '-q:v', '3', '-y', filePath], FRAME_TIMEOUT_MS);
+        ok = existsSync(filePath);
+      } catch {
+        ok = false;
+      }
+    }
+    if (!ok) {
+      const tmp = join(tmpdir(), `yt-frame-${randomUUID().slice(0, 8)}.%(ext)s`);
+      const written = lastLine(await ytdlp(['-f', select, '--download-sections', `*${time}-${time + 2}`, '-o', tmp, '--print', 'after_move:filepath', url], FRAME_TIMEOUT_MS));
+      try {
+        await runFfmpeg(['-i', written, '-frames:v', '1', '-q:v', '3', '-y', filePath], FRAME_TIMEOUT_MS);
+      } finally {
+        try { unlinkSync(written); } catch { /* already gone */ }
+      }
+    }
+    frames.push({ time, filePath });
+  }
+  return frames;
 }

@@ -1,29 +1,22 @@
-# Gemini CLI Tool Mapping
+# Gemini CLI tool mapping
 
-Skills reference Claude Code tool names. When you encounter these, use your Gemini CLI equivalent:
+Skills name Claude Code tools. Use your Gemini CLI equivalent:
 
-| Skill references | Gemini CLI equivalent |
-|-----------------|----------------------|
-| `Read` (file reading) | `read_file` |
-| `Write` (file creation) | `write_file` |
-| `Edit` (file editing) | `replace` |
-| `Bash` (run commands) | `run_shell_command` |
-| `Skill` tool (invoke a skill) | `activate_skill` |
+| Skill names | Gemini CLI |
+|---|---|
+| `Read` | `read_file` |
+| `Write` | `write_file` |
+| `Edit` | `replace` |
+| `Bash` | `run_shell_command` |
+| `Skill` | `activate_skill` |
 
-## MCP Tools
+The YouTube tools (`youtube_search`, `youtube_get_transcript`, `youtube_get_video_info`, `youtube_get_frames`, `youtube_get_comments`, `youtube_get_channel_info`, `youtube_get_channel_videos`, `youtube_get_playlist`, `youtube_download`, `youtube_clip`, `youtube_highlight_reel`) come from the MCP server and keep their names.
 
-The YouTube MCP tools (`youtube_search`, `youtube_get_transcript`, `youtube_get_video_info`, `youtube_get_channel_info`, `youtube_get_channel_videos`, `youtube_get_playlist`) work natively via MCP — no name translation needed.
+There is no `video-watcher` subagent here: watch videos yourself with `youtube_get_transcript` in the current session.
 
-## No subagent support
-
-Gemini CLI does not support subagents. The `video-watcher` agent is not available. To watch a video, call `youtube_get_transcript` directly and analyze the result in the current session.
-
-## Authentication
-
-The plugin works out of the box in anonymous mode. For personalized results (recommendations, watch history), extract cookies manually:
+`${CLAUDE_PLUGIN_ROOT}` in the skills means this extension's folder (`~/.gemini/extensions/youtube`). To check the server or sign in:
 
 ```bash
-node scripts/extract-cookies.mjs
+node ~/.gemini/extensions/youtube/dist/index.js doctor
+node ~/.gemini/extensions/youtube/dist/index.js login
 ```
-
-This launches Chrome, extracts YouTube cookies, and stores them locally in `.cookies.json`. You must be logged into YouTube in Chrome for this to work.

@@ -1,0 +1,90 @@
+name: Bug report
+description: Something doesn't work
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The output of the `doctor` command is the most useful thing you can add:
+        `npx @jcodesmore/youtube-for-ai-agents doctor` (or `/youtube:setup` in Claude Code).
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you asked the agent, and what it did or said.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: input
+    id: video
+    attributes:
+      label: Video or channel link
+      description: If it's about a particular video, channel or playlist.
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Doctor output
+      description: Paste the output of the doctor command.
+      render: text
+
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - OpenCode
+        - Gemini CLI
+        - Other MCP client
+    validations:
+      required: true
+
+  - type: input
+    id: agent-version
+    attributes:
+      label: Agent version
+      placeholder: "claude --version, codex --version, ..."
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      description: Run `node --version`.
+      placeholder: v24.x.x
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: Shown on the first line of the doctor output.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else
+      description: Error messages, screenshots, whether you use a VPN.

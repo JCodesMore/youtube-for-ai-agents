@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { getVideoInfo, type VideoInfo } from '../lib/innertube.js';
+import { parseVideoId } from '../lib/ids.js';
 
 export const videoInfoInputSchema = {
-  videoId: z.string().describe('YouTube video ID'),
+  videoId: z.string().describe('YouTube video URL (any form: watch, youtu.be, Shorts, live) or 11-character video ID'),
   detail: z.enum(['brief', 'standard', 'full']).optional()
     .describe('Detail level — "brief" (key metadata only), "standard" (most fields, truncated description, no chapters), or "full" (everything). Default: standard'),
 };
@@ -11,7 +12,7 @@ type DetailLevel = 'brief' | 'standard' | 'full';
 
 const BRIEF_FIELDS: (keyof VideoInfo)[] = [
   'id', 'title', 'channel', 'channelId', 'views', 'likes',
-  'duration', 'published', 'relativeDate', 'category',
+  'duration', 'published', 'relativeDate', 'category', 'limited',
 ];
 
 const DESC_TRUNCATE_LENGTH = 200;
@@ -38,14 +39,14 @@ function shapeResponse(info: VideoInfo, detail: DetailLevel): Partial<VideoInfo>
 }
 
 export async function handleVideoInfo(args: { videoId: string; detail?: DetailLevel }) {
-  const info = await getVideoInfo(args.videoId);
+  const info = await getVideoInfo(parseVideoId(args.videoId));
   const detail = args.detail ?? 'standard';
   const shaped = shapeResponse(info, detail);
 
   return {
     content: [{
       type: 'text' as const,
-      text: JSON.stringify(shaped, null, 2),
+      text: JSON.stringify(shaped),
     }],
   };
 }

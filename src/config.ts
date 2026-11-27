@@ -1,6 +1,6 @@
 export const DEFAULTS = {
   search: {
-    defaultLimit: 20,
+    defaultLimit: 10,
     maxLimit: 50,
     defaultType: 'video' as const,
     defaultUploadDate: 'all' as const,
@@ -9,7 +9,8 @@ export const DEFAULTS = {
   },
 
   transcript: {
-    defaultLanguage: 'en',
+    /** Empty means the language the video is spoken in. Set a code (e.g. "en") to always get that language, translated by YouTube when needed. */
+    defaultLanguage: '',
     maxSegments: 5000,
     cleanupEnabled: true,
   },
@@ -49,10 +50,17 @@ export const DEFAULTS = {
     location: 'US',
     retrievePlayer: false,
   },
-} as const;
 
-/** Backward compatibility alias */
-export const CONFIG = DEFAULTS;
+  network: {
+    /** http(s) proxy URL for all YouTube traffic; empty for a direct connection. */
+    proxy: '',
+  },
+
+  cache: {
+    /** How long fetched transcripts are kept on disk, so re-reading a video costs no request. */
+    transcriptDays: 7,
+  },
+} as const;
 
 export type ResolvedConfig = {
   search: {
@@ -94,6 +102,12 @@ export type ResolvedConfig = {
     language: string;
     location: string;
     retrievePlayer: boolean;
+  };
+  network: {
+    proxy: string;
+  };
+  cache: {
+    transcriptDays: number;
   };
 };
 

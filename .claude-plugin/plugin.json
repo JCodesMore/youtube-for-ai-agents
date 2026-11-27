@@ -1,7 +1,7 @@
 {
   "name": "youtube",
-  "description": "YouTube tools — search, transcripts, video info, channel browsing, playlists",
-  "version": "0.2.0",
+  "description": "Give Claude YouTube: search, watch videos through their transcripts, read comments, see frames, browse channels and playlists, and download, clip and build highlight reels. No API key.",
+  "version": "0.3.0",
   "author": {
     "name": "JCodesMore",
     "url": "https://github.com/JCodesMore"
@@ -15,18 +15,15 @@
     "transcripts",
     "research",
     "search",
-    "claude-code"
+    "clips",
+    "video"
   ],
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/ensure-deps.mjs\""
-          }
-        ]
-      }
-    ]
+  "mcpServers": {
+    "youtube": {
+      "command": "node",
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/dist/index.js"
+      ]
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { existsSync, statSync, mkdirSync } from 'fs';
 import { resolve, join } from 'path';
-import { concatClips, formatFileSize, getVideoDuration, formatSeconds } from '../lib/download.js';
+import { concatClips, formatFileSize, getVideoDuration, formatSeconds, sanitizeFilename } from '../lib/download.js';
 
 export const highlightReelInputSchema = {
   clips: z.array(z.string()).min(2)
@@ -27,7 +27,7 @@ export async function handleHighlightReel(args: HighlightReelArgs) {
   const outputDir = resolve(args.outputDir ?? '.');
   if (!existsSync(outputDir)) mkdirSync(outputDir, { recursive: true });
 
-  const label = args.label ?? 'highlight-reel';
+  const label = sanitizeFilename(args.label ?? 'highlight-reel');
   const outputPath = join(outputDir, `${label}.mp4`);
 
   await concatClips(args.clips, outputPath, { reencode: true });

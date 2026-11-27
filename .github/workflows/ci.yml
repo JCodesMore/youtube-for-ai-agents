@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check (${{ matrix.os }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      # The lockfile lives outside the plugin root: Claude Code npm-installs any plugin that ships one.
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Committed dist/ matches the source
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24
+        run: node scripts/check-dist.mjs
+      - name: Server starts and lists its tools
+        run: node test/smoke.mjs --offline
+
+  oldest-node:
+    name: Starts on Node ${{ matrix.node }}
+    # The lowest versions people still run. A bundled dependency that needs a newer Node stops the
+    # server before it can say why, and the newest-version jobs above never see it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22.12"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
+      - run: node dist/index.js version
+      - name: Server starts and lists its tools
+        run: node test/smoke.mjs --offline
+
+  live:
+    name: Live YouTube smoke test
+    # YouTube often rate-limits datacenter IPs, so this reports but never blocks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: cp .github/lock/package-lock.json . && npm ci --no-audit --no-fund
+      - run: node test/smoke.mjs

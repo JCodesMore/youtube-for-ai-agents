@@ -1,39 +1,47 @@
 # Contributing
 
-Thanks for your interest in contributing to youtube-for-ai-agents!
+Thanks for helping make **YouTube for AI Agents** better.
 
 ## Contributor License Agreement
 
-By submitting a pull request, you agree to the terms of the [Contributor License Agreement](CLA.md). This CLA grants the project owner the right to relicense contributions and use them commercially. Please read it before contributing.
+By submitting a pull request, you agree to the [Contributor License Agreement](CLA.md), which lets the project owner relicense contributions and use them commercially. Please read it first.
 
-## Getting Started
+## Ways to contribute
 
-1. Fork and clone the repo
-2. Install dependencies: `npm install`
-3. Build: `npm run build`
-4. Test locally: `claude --plugin-dir .`
+- **Fix a bug** — browse the [open issues](https://github.com/JCodesMore/youtube-for-ai-agents/issues)
+- **Add or improve a tool** in `src/tools/`
+- **Improve agent support** for Claude Code, Codex, Cursor, OpenCode or Gemini CLI
+- **Improve the skill or docs** — `skills/youtube/SKILL.md`, the README, or `docs/`
 
-## Development
+For bigger or breaking changes, open an issue first so we can agree on the approach.
 
-The source code is in `src/` and compiles to `dist/`. Always run `npm run build` after making changes. Use `npm run dev` for watch mode during development.
+## Development setup
 
-The `dist/` directory is gitignored — don't commit build artifacts.
+Needs [Node.js](https://nodejs.org/) 22+.
 
-## Pull Requests
+```bash
+git clone https://github.com/YOUR-USERNAME/youtube-for-ai-agents.git
+cd youtube-for-ai-agents
+npm install
+npm run check
+```
 
-- Keep changes focused. One feature or fix per PR.
-- Describe what you changed and why.
-- Make sure `npm run build` passes before submitting.
-- Test your changes manually with Claude Code.
-- By submitting a PR, you agree to the [CLA](CLA.md).
+Try your change in a real agent:
 
-## Adding a Tool
+```bash
+claude --plugin-dir .
+```
 
-1. Create a new file in `src/tools/` with a zod input schema and handler function
-2. Register the tool in `src/index.ts`
-3. Update the tools table in `README.md`
-4. Run `npm run build` and test
+[AGENTS.md](AGENTS.md) explains how the code fits together and the constraints that aren't obvious, among them why `dist/` is committed and why there's no lockfile.
 
-## Reporting Issues
+## Submitting a pull request
 
-Use the GitHub issue templates for bug reports and feature requests.
+1. Branch off `main` (for example `fix/transcript-language` or `feat/chapters-tool`).
+2. Make one focused change.
+3. Run `npm run check` and commit the rebuilt `dist/` with your source change.
+4. Add a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for anything users will notice.
+5. Open a PR against `main` and fill in the template. Prefixes like `fix:`, `feat:` or `docs:` in commit messages are welcome.
+
+## Questions
+
+Ask in the [Discord community](https://discord.gg/babcVNJBet).

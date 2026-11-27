@@ -11,7 +11,7 @@ export async function handleChannelInfo(args: { channelId: string }) {
   return {
     content: [{
       type: 'text' as const,
-      text: JSON.stringify(info, null, 2),
+      text: JSON.stringify(info),
     }],
   };
 }

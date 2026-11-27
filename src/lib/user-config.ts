@@ -1,15 +1,20 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { DEFAULTS, type ResolvedConfig } from '../config.js';
+import { dataFile, legacyFiles } from './paths.js';
 
 const CONFIG_FILENAME = 'config.json';
 
 export function getConfigPath(): string {
-  const dataDir = process.env.CLAUDE_PLUGIN_DATA;
-  if (!dataDir) {
-    return join(process.cwd(), `.${CONFIG_FILENAME}`);
+  return dataFile(CONFIG_FILENAME);
+}
+
+/** The settings file in use: the current location, or one left by an older version. */
+function readablePath(): string | null {
+  for (const path of [getConfigPath(), ...legacyFiles(CONFIG_FILENAME)]) {
+    if (existsSync(path)) return path;
   }
-  return join(dataDir, CONFIG_FILENAME);
+  return null;
 }
 
 export type UserOverrides = {
@@ -19,11 +24,13 @@ export type UserOverrides = {
   playlist?: Partial<ResolvedConfig['playlist']>;
   download?: Partial<ResolvedConfig['download']>;
   innertube?: Partial<ResolvedConfig['innertube']>;
+  network?: Partial<ResolvedConfig['network']>;
+  cache?: Partial<ResolvedConfig['cache']>;
 };
 
 export function loadUserConfig(): UserOverrides {
-  const configPath = getConfigPath();
-  if (!existsSync(configPath)) return {};
+  const configPath = readablePath();
+  if (!configPath) return {};
   try {
     const content = readFileSync(configPath, 'utf8');
     return JSON.parse(content) as UserOverrides;
@@ -39,6 +46,7 @@ export function saveUserConfig(overrides: UserOverrides): void {
     mkdirSync(dir, { recursive: true });
   }
   writeFileSync(configPath, JSON.stringify(overrides, null, 2));
+  cachedConfig = null;
 }
 
 export function deleteUserConfig(): boolean {

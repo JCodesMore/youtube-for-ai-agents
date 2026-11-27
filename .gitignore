@@ -10,3 +10,9 @@ docs/superpowers/
 *.env.local
 temp/
 highlight-reel-output/
+test-output/
+*.mp4
+*.m4a
+coverage/
+package-lock.json
+!.github/lock/package-lock.json

@@ -1,8 +1,8 @@
 /**
  * YouTube plugin for OpenCode.ai
  *
- * Injects YouTube skill context via system prompt transform.
- * Auto-registers skills directory via config hook.
+ * Registers the YouTube MCP server and the skills directory via the config hook,
+ * and injects the YouTube skill into the system prompt.
  */
 
 import path from 'path';
@@ -33,6 +33,7 @@ const extractAndStripFrontmatter = (content) => {
 
 export const YouTubePlugin = async ({ client, directory }) => {
   const skillsDir = path.resolve(__dirname, '../../skills');
+  const serverPath = path.resolve(__dirname, '../../dist/index.js');
 
   const getBootstrapContent = () => {
     const skillPath = path.join(skillsDir, 'youtube', 'SKILL.md');
@@ -54,6 +55,10 @@ When skills reference Claude Code tools, use OpenCode equivalents:
 
   return {
     config: async (config) => {
+      config.mcp = config.mcp || {};
+      if (!config.mcp.youtube) {
+        config.mcp.youtube = { type: 'local', command: ['node', serverPath], enabled: true };
+      }
       config.skills = config.skills || {};
       config.skills.paths = config.skills.paths || [];
       if (!config.skills.paths.includes(skillsDir)) {
