@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `youtube_get_playlist` returns each video's ID, title and channel again. They came back empty after a YouTube layout change.
+- Upload dates are back in search results and channel video lists.
+- `youtube_get_video_info` gives a like count of 0 instead of "NaN" for videos with no likes, and fills tags from the video's keywords when YouTube leaves the tags out. It no longer warns that details were withheld when nothing is missing.
+- Comments with no likes show "0" instead of a blank.
+- A deleted video is recognized as gone at once, instead of the transcript tool trying every route.
+
 ## [0.3.2] - 2026-11-27
 
 ### Fixed

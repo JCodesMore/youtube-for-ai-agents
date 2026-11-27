@@ -80,7 +80,7 @@ export function readLockup(item: any): LockupFields | null {
   };
 }
 
-const AGE = /ago|^streamed|^premiered/i;
+const AGE = /\bago\b|^streamed|^premiered/i;
 const DURATION = /^\d+(:\d{2}){1,2}$/;
 const VIEWS = /view|^[\d.,]+[KMB]?$/i;
 
@@ -322,11 +322,20 @@ export async function getVideoInfo(videoId: string): Promise<VideoInfo> {
     throw new Error(status?.reason ? `${status.status}: ${status.reason}` : `YouTube returned no details for ${videoId}.`);
   }
 
+  // The like count comes from the watch page's like button; youtubei.js reads it as NaN when the
+  // button shows no number (no likes yet), so fall back to the button's own short count.
+  const likeButton = primary?.menu?.top_level_buttons?.find((b: any) => b?.type === 'SegmentedLikeDislikeButtonView');
+  const likeCount = info.basic_info.like_count;
+  const likes = likeCount !== undefined && Number.isFinite(likeCount) ? likeCount.toLocaleString() : String(likeButton?.short_like_count ?? '');
+  const tags: string[] = info.basic_info.tags?.length ? info.basic_info.tags : ((info.basic_info as any).keywords ?? []);
+  const duration = info.basic_info.duration ? formatDuration(info.basic_info.duration) : '';
+  const missing = [!duration && 'duration', !tags.length && 'tags'].filter(Boolean);
+
   return {
     id: info.basic_info.id ?? videoId,
     title,
-    ...(status && status.status !== 'OK'
-      ? { limited: `YouTube withheld some details from this network (${status.reason ?? status.status}), so duration, tags and keywords may be missing. Signing in usually fixes it.` }
+    ...(status && status.status !== 'OK' && missing.length
+      ? { limited: `YouTube withheld some details from this network (${status.reason ?? status.status}), so ${missing.join(' and ')} may be missing. Signing in usually fixes it.` }
       : {}),
     channel: info.basic_info.author || text(secondary?.owner?.author?.name ?? secondary?.owner?.author),
     channelId: info.basic_info.channel_id || secondary?.owner?.author?.id || '',
@@ -335,12 +344,12 @@ export async function getVideoInfo(videoId: string): Promise<VideoInfo> {
     description: info.basic_info.short_description || text(secondary?.description),
     category: (info.basic_info as any).category ?? '',
     views: info.basic_info.view_count?.toLocaleString() || primary?.view_count?.original_view_count?.toLocaleString() || text(primary?.view_count?.view_count),
-    likes: info.basic_info.like_count?.toLocaleString() ?? '',
+    likes,
     published: (info as any).primary_info?.published?.text ?? '',
     relativeDate: (info as any).primary_info?.relative_date?.text ?? '',
-    duration: info.basic_info.duration ? formatDuration(info.basic_info.duration) : '',
+    duration,
     thumbnail: info.basic_info.thumbnail?.[0]?.url ?? '',
-    tags: info.basic_info.tags ?? [],
+    tags,
     isLive: info.basic_info.is_live ?? false,
     isUpcoming: info.basic_info.is_upcoming ?? false,
     chapters,
@@ -540,6 +549,18 @@ export async function getPlaylist(
   while (videos.length < limit) {
     for (const item of current.items ?? current.videos ?? []) {
       if (videos.length >= limit) break;
+      const l = readLockup(item);
+      if (l) {
+        videos.push({
+          id: l.id,
+          title: l.title,
+          channel: l.channelName,
+          channelId: l.channelId,
+          duration: l.badges.find((b) => DURATION.test(b)) ?? '',
+          position: position++,
+        });
+        continue;
+      }
       const v = item as any;
       videos.push({
         id: v.video_id ?? v.id ?? '',
@@ -619,7 +640,7 @@ export async function getComments(
       comments.push({
         author: c.author?.name ?? '',
         text: c.content?.toString?.() ?? '',
-        likes: c.like_count ?? '0',
+        likes: String(c.like_count ?? '').trim() || '0',
         published: c.published_time ?? '',
         replies: Number(String(c.reply_count ?? '0').replace(/[^\d]/g, '')) || 0,
         ...(c.is_pinned ? { pinned: true } : {}),
