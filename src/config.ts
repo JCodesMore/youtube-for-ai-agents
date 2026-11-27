@@ -43,6 +43,8 @@ export const DEFAULTS = {
     defaultFormat: 'mp4',
     defaultType: 'video+audio' as const,
     maxDurationMinutes: 30,
+    /** Audio is about 1 MB a minute and most podcast episodes run past the video limit. */
+    maxAudioDurationMinutes: 180,
   },
 
   innertube: {
@@ -90,6 +92,7 @@ export type ResolvedConfig = {
     defaultFormat: string;
     defaultType: DownloadType;
     maxDurationMinutes: number;
+    maxAudioDurationMinutes: number;
   };
   auth: {
     cookieFilename: string;

@@ -169,6 +169,7 @@ npx @jcodesmore/youtube-for-ai-agents config set network.proxy http://user:pass@
 ```bash
 npx @jcodesmore/youtube-for-ai-agents config            # show every setting
 npx @jcodesmore/youtube-for-ai-agents config set transcript.defaultLanguage en
+npx @jcodesmore/youtube-for-ai-agents config set download.maxAudioDurationMinutes 300   # podcasts up to 5 h without asking
 npx @jcodesmore/youtube-for-ai-agents config reset
 ```
 

@@ -31,6 +31,7 @@ Everything works anonymously: search, transcripts, frames, comments, downloads. 
    - `transcript.defaultLanguage`: a language code such as `en` to always translate into; empty means the language the video is spoken in.
    - `search.defaultLimit`, `channel.defaultVideoLimit`: how many results by default.
    - `download.defaultQuality`: `720p` by default.
+   - `download.maxDurationMinutes`, `download.maxAudioDurationMinutes`: how long a video (30 minutes) or audio-only download (180 minutes) can be before the tools ask to confirm.
    - `network.proxy`: an `http://user:pass@host:port` proxy for all YouTube traffic, for networks YouTube blocks.
    - `innertube.language`, `innertube.location`: interface language and country, such as `en` and `US`.
 4. **Done** — nothing to change.

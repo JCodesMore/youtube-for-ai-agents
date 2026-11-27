@@ -215,12 +215,6 @@ function lastLine(stdout: string): string {
   return stdout.trim().split(/\r?\n/).filter(Boolean).pop() ?? '';
 }
 
-/**
- * Audio is about 1 MB a minute and most podcast episodes run past the video limit, so audio-only
- * downloads only warn past this many minutes (or the configured limit, if that is higher).
- */
-const AUDIO_GUARD_MINUTES = 180;
-
 function guard(
   title: string, durationSeconds: number, force: boolean | undefined, action: string,
   maxMinutes = getConfig().download.maxDurationMinutes,
@@ -381,9 +375,7 @@ export async function downloadVideo(videoId: string, options: DownloadOptions = 
 
   const audioOnly = type === 'audio';
   const { title, durationSeconds } = await getInfo(url);
-  const maxMinutes = audioOnly
-    ? Math.max(AUDIO_GUARD_MINUTES, config.download.maxDurationMinutes)
-    : config.download.maxDurationMinutes;
+  const maxMinutes = audioOnly ? config.download.maxAudioDurationMinutes : config.download.maxDurationMinutes;
   const warning = guard(title, durationSeconds, options.force, 'downloading', maxMinutes);
   if (warning) return warning;
 
@@ -459,7 +451,7 @@ export async function createClips(
   }
 
   const result: ClipsResult = { clips: results };
-  if ((options.highlightReel ?? true) && results.length >= 2) {
+  if (options.highlightReel && results.length >= 2) {
     const reelPath = join(outputDir, `${safeName} - highlight-reel.mp4`);
     await concatClips(results.map((c) => c.filePath), reelPath);
     result.highlightReel = { ...(await summarizeFile(reelPath)), clipCount: results.length };

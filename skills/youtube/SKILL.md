@@ -32,7 +32,7 @@ For what commenters argue about or the creator's answers, pass `replies` to `you
 ## Downloads, clips and reels
 
 - `youtube_download` saves a video (720p MP4 by default) or audio only (`type: "audio"`, M4A). Keep the default quality unless asked. `outputPath` can be a file or a folder. `resolution` is what was saved: when it's below what was asked, say the video isn't available sharper.
-- `youtube_clip` cuts moments by timestamp, downloading only those ranges. With 2+ clips it also joins them into a reel, so pass `highlightReel: false` unless a reel was asked for. An end past the video's end is clipped to the end, and `notes` say so. Pick the moments from the transcript first.
+- `youtube_clip` cuts moments by timestamp, downloading only those ranges. For a reel of 2+ clips from one video, pass `highlightReel: true`. An end past the video's end is clipped to the end, and `notes` say so. Pick the moments from the transcript first.
 - `youtube_highlight_reel` joins clip files from several videos, in the order given, framed vertical when most clips are.
 - Files go to the current folder unless the user names one. Report each file's path, measured duration and size.
 - The first media call downloads yt-dlp and ffmpeg automatically (about a minute); say so if it's slow.

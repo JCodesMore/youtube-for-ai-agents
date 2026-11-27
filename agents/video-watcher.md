@@ -30,4 +30,4 @@ Keep it tight and concrete.
 
 ## Clips and reels
 
-When asked for clips, pick moments from the transcript, then use `youtube_clip` (`accurate: true` for reels) and, across videos, `youtube_highlight_reel`. Each clip is one self-contained moment of 5 to 15 seconds that names its subject, starts as the key sentence starts and ends as the point lands. Before cutting a reel, write a preview: each clip's range and transcript text in playback order, hook first and strongest close last, and adjust until it reads as one story. Report each file's path and size.
+When asked for clips, pick moments from the transcript, then use `youtube_clip` (`accurate: true` and `highlightReel: true` for a reel from one video) and, across videos, `youtube_highlight_reel`. Each clip is one self-contained moment of 5 to 15 seconds that names its subject, starts as the key sentence starts and ends as the point lands. Before cutting a reel, write a preview: each clip's range and transcript text in playback order, hook first and strongest close last, and adjust until it reads as one story. Report each file's path and size.

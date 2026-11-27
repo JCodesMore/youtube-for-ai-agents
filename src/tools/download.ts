@@ -15,7 +15,7 @@ export const downloadInputSchema = {
   format: z.string().optional()
     .describe('File format: mp4 (default), webm or mkv for video; m4a (default), mp3, opus or wav for audio'),
   force: z.boolean().optional()
-    .describe('Bypass the duration guard (by default video over 30 minutes, audio over 3 hours)'),
+    .describe('Bypass the duration guard (by default video over 30 minutes, audio over 3 hours; both set with the "config" command)'),
 };
 
 interface DownloadArgs {
